@@ -34,6 +34,7 @@ Proven  ██░░░░░░░░░░░░░░░░░░  10%  (38/3
 ### After push (needs CI + you)
 - [ ] `git push -u origin main`
 - [ ] First CI build green (expect 1–3 compile-fix rounds — paste logs here)
+- [ ] Testing APK: `git tag v0.4-testing && git push origin v0.4-testing` → pre-release APK appears under Releases
 - [ ] `cargo test` green in CI
 - [ ] Install debug APK on Android 15, grant Accessibility + capture + mic
 - [ ] Run 3 real tasks end-to-end, fix runtime issues

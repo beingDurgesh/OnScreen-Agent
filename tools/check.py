@@ -91,6 +91,8 @@ ok(jar.exists() and jar.stat().st_size > 10_000, "gradle wrapper jar present")
 
 wf = (root / ".github/workflows/build-apk.yml").read_text()
 ok("assembleDebug" in wf and "cargo test" in wf, "CI builds APK + runs rust tests")
+rel = (root / ".github/workflows/release-apk.yml").read_text()
+ok("softprops/action-gh-release" in rel and "prerelease" in rel, "CI publishes testing APK release")
 
 print(f"\n{len(fails)} failures")
 sys.exit(1 if fails else 0)
