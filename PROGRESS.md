@@ -18,7 +18,7 @@ Proven  ██░░░░░░░░░░░░░░░░░░  10%  (38/3
 | Agent loop + stable IDs | ██████████ 100% | ░░░░░░░░░░ 0% | Full code, never run |
 | Cloud VLM/STT/TTS calls | ████████░░ 80% | ░░░░░░░░░░ 0% | Gemini TTS + KittenTTS still stubs |
 | Rust core (parse/budget) | ██████████ 100% | ██░░░░░░░░ 20% | Tests written, never executed |
-| On-device (whisper/gemma/kitten) | ██░░░░░░░░ 20% | ░░░░░░░░░░ 0% | Placeholders only |
+| On-device (whisper/gemma/kitten) | █████░░░░░ 50% | ░░░░░░░░░░ 0% | Downloads UI + verified URLs done; inference wiring TODO |
 | Build tooling (gradlew, CI) | ██████████ 100% | ░░░░░░░░░░ 0% | First CI run pending |
 | Device test + metrics | ░░░░░░░░░░ 0% | ░░░░░░░░░░ 0% | Needs Android 15 device |
 | Signed release | ░░░░░░░░░░ 0% | ░░░░░░░░░░ 0% | After device test |
@@ -42,10 +42,10 @@ Proven  ██░░░░░░░░░░░░░░░░░░  10%  (38/3
 - [ ] Signed release APK + SHA-256 + GitHub Release
 
 ### Later (on-device track)
-- [ ] whisper.cpp model download + mmap + transcribe wiring
-- [ ] Gemma 3n E2B/E4B Q4 inference path
-- [ ] KittenTTS `.onnx` download + playback
-- [ ] Heat/RAM profiling for on-device mode
+- [x] Model download manager (verified HF URLs, progress/cancel/delete, HF token for Gemma)
+- [ ] whisper.cpp inference on downloaded `.bin`
+- [ ] Gemma 3n inference on downloaded `.gguf`
+- [ ] KittenTTS playback from downloaded `.onnx`
 
 ## How to update this file
 Check a box when its exit proof exists (CI log link, device screenshot,

@@ -25,7 +25,7 @@ object SettingsStore {
     )
 
     val STT_MODELS = mapOf(
-        "whisper.cpp (on-device)" to listOf("tiny.en-q4", "base.en-q4"),
+        "whisper.cpp (on-device)" to listOf("tiny.en-q5_1", "base.en-q5_1"),
         "OpenAI" to listOf("whisper-1"),
         "Gemini" to listOf("gemini-2.0-flash")
     )

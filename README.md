@@ -27,6 +27,12 @@ features (no model weights).
 
 Optional 4th field: Brave Search key (passthrough, same as upstream).
 
+On-device downloads (section 4 in the app): Whisper `tiny.en-q5_1` (32MB) /
+`base.en-q5_1` (60MB), Gemma 3n E2B-Q8_0 (4.8GB) / E4B-Q8_0 (7.4GB, both gated —
+approve on Hugging Face + save a token), KittenTTS nano pack (24MB). Official
+ggml-org Q4 does not exist, so Q8_0 is offered with a RAM warning. Inference on
+downloaded files is the next build; downloads land in `filesDir/models/<id>/`.
+
 ## How the loop works
 1. Play → screen-capture permission → `AgentService` starts with goal + projection.
 2. Each step: `dumpIndexed()` (stable ids) + `captureJpeg()` (960px q60) →

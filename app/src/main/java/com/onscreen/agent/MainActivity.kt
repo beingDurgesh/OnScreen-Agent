@@ -146,6 +146,7 @@ fun SettingsScreen() {
         ByokCard("1 · Speech-to-text (whisper.cpp default offline)", SettingsStore.STT_MODELS, "sttProvider", "sttModel", "stt")
         ByokCard("2 · Vision-language agent brain", SettingsStore.VLM_MODELS, "vlmProvider", "vlmModel", "vlm")
         ByokCard("3 · Text-to-speech (KittenTTS default offline)", SettingsStore.TTS_MODELS, "ttsProvider", "ttsModel", "tts")
+        ModelsSection()
         OutlinedTextField(goal, { goal = it }, label = { Text("Goal, e.g. Turn on Dark theme in Settings") }, modifier = Modifier.fillMaxWidth())
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {

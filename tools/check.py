@@ -59,6 +59,27 @@ ok("speakStatus" in ag, "loop: spoken status")
 ma = src["MainActivity.kt"]
 ok("MediaRecorder" in ma and "transcribeMicFile" in ma, "UI: mic -> transcription")
 ok("intentForResult" in ma and "putExtra(\"rc\"" in ma, "UI: capture permission -> service")
+ok("ModelsSection" in ma and "ModelsSection" in src["ModelsSection.kt"], "UI: on-device downloads section")
+
+mm = src["ModelManager.kt"]
+ok("ModelCatalog" in mm and "ModelManager" in mm, "models: catalog + manager")
+for url, label in [
+    ("ggerganov/whisper.cpp/resolve/main", "whisper repo URL"),
+    ("ggml-tiny.en-q5_1.bin", "whisper tiny filename"),
+    ("ggml-base.en-q5_1.bin", "whisper base filename"),
+    ("ggml-org/gemma-3n-E2B-it-GGUF/resolve/main", "gemma E2B repo URL"),
+    ("gemma-3n-E2B-it-Q8_0.gguf", "gemma E2B filename"),
+    ("ggml-org/gemma-3n-E4B-it-GGUF/resolve/main", "gemma E4B repo URL"),
+    ("gemma-3n-E4B-it-Q8_0.gguf", "gemma E4B filename"),
+    ("KittenML/kitten-tts-nano-0.1/resolve/main", "kitten repo URL"),
+    ("kitten_tts_nano_v0_1.onnx", "kitten onnx filename"),
+    ("voices.npz", "kitten voices file"),
+]:
+    ok(url in mm, f"models: {label}")
+ok("needsHfToken" in mm and "Authorization" in mm, "models: gated HF auth")
+ok(".part" in mm and "renameTo" in mm, "models: atomic download")
+ok("deleteRecursively" in mm and "cancel" in mm, "models: cancel + delete")
+ok("usableSpace" in mm, "models: free-space check")
 
 cargo = (root / "rust/agent-core/Cargo.toml").read_text()
 ok('opt-level = "z"' in cargo and "lto = true" in cargo, "rust size/RAM profile")

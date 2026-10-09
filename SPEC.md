@@ -17,7 +17,7 @@ Observed v1 behavior to preserve:
 - `minSdk 35` (Android 15), `targetSdk 35`, `compileSdk 36`. Edge-to-edge, POST_NOTIFICATIONS runtime permission.
 - Kotlin shell (framework-mandated) + Rust core via JNI. Pure-Rust APK is not viable for `AccessibilityService` / `MediaProjection` / Compose.
 - Cloud-first: 3 BYOK modules, each with provider + model picker + key field:
-  1. **STT**: `whisper.cpp on-device (tiny.en Q4, default offline)` | `OpenAI whisper-1` | `Gemini gemini-2.0-flash`
+  1. **STT**: `whisper.cpp on-device (tiny.en q5_1, default offline)` | `OpenAI whisper-1` | `Gemini gemini-2.0-flash`
   2. **VLM / agent brain**: `OpenAI gpt-4o-mini / gpt-4o / gpt-4.1` | `Gemini gemini-2.5-flash / gemini-2.5-pro` | `OpenRouter custom string`
   3. **TTS**: `KittenTTS on-device (default offline)` | `OpenAI tts-1 / gpt-4o-mini-tts` | `Gemini TTS`
 - Keys stored on-device only (EncryptedSharedPreferences / DataStore). No backend. Direct HTTPS from phone.
