@@ -78,6 +78,23 @@ pub fn build_prompt(goal: &str, tree: &str, history_json: &str) -> String {
     )
 }
 
+// ---- On-device placeholders (UNVERIFIED: need NDK build + model files on
+// first use; cfg-gated so the default cloud build never compiles them) ----
+#[cfg(feature = "ondevice-stt")]
+pub fn transcribe_ondevice(_wav: &[u8]) -> Result<String, String> {
+    Err("whisper model not bundled — download tiny.en-q4 first".into())
+}
+
+#[cfg(feature = "ondevice-tts")]
+pub fn speak_ondevice(_text: &str) -> Result<Vec<u8>, String> {
+    Err("kitten-tts model not bundled".into())
+}
+
+#[cfg(feature = "ondevice-vlm")]
+pub fn plan_ondevice(_prompt: &str) -> Result<String, String> {
+    Err("gemma-3n weights not bundled".into())
+}
+
 // ---- JNI (thin; heavy work stays in pure fns above for testability) ----
 #[no_mangle]
 pub extern "system" fn Java_com_onscreen_agent_RustBridge_parseAction(
