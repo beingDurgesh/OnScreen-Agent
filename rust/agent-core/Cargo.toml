@@ -1,0 +1,32 @@
+[package]
+name = "agent-core"
+version = "0.2.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# On-device weights are NEVER bundled. These only enable download-and-mmap paths.
+ondevice-stt = ["dep:whisper-rs"]
+ondevice-tts = ["dep:ort"]
+ondevice-vlm = []
+
+[dependencies]
+jni = "0.21"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+smallvec = { version = "1", features = ["union", "serde"] }
+whisper-rs = { version = "0.12", optional = true }
+ort = { version = "2", optional = true, default-features = false, features = ["onnxruntime"] }
+
+[profile.release]
+opt-level = "z"      # min size -> less RAM/pages
+lto = true
+strip = "symbols"
+codegen-units = 1
+panic = "unwind"     # required for JNI; do not set abort
+
+[profile.release.package."*"]
+opt-level = "z"

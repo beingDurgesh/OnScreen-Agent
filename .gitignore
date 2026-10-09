@@ -1,0 +1,12 @@
+/build
+/app/build
+/app/.cxx
+*.iml
+.gradle/
+local.properties
+**/jniLibs/arm64-v8a/*.so
+rust/target/
+**/__pycache__/
+.env
+*.keystore
+*.jks

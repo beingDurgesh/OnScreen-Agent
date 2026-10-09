@@ -1,0 +1,2 @@
+-keep class com.onscreen.agent.** { *; }
+-dontwarn org.bouncycastle.**
