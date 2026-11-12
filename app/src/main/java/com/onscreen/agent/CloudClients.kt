@@ -14,22 +14,54 @@ import java.util.concurrent.TimeUnit
 
 /** Minimal cloud router: OpenAI / Gemini / OpenRouter, direct from phone. No app backend. */
 object CloudClients {
+    /**
+     * The request currently in flight. The agent loop makes one request at a
+     * time, so a single slot is enough — and it lets [cancelActive] abort a
+     * request the moment the user presses Stop instead of waiting for the
+     * socket timeout.
+     */
+    @Volatile private var activeCall: okhttp3.Call? = null
+
+    /** Abort the in-flight provider request, if any. Safe to call when idle. */
+    fun cancelActive() {
+        activeCall?.cancel()
+        activeCall = null
+    }
+
     private val http = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
+        // Bounds the whole call including redirects and retries, so a wedged
+        // server cannot hold the agent loop open indefinitely.
+        .callTimeout(120, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
 
     private val JSON = "application/json".toMediaType()
 
+    /**
+     * Execute a request while registering it as the active call, so a Stop
+     * can abort it. The call is cleared on the way out.
+     */
+    private fun execute(req: Request): okhttp3.Response {
+        val call = http.newCall(req)
+        activeCall = call
+        try {
+            return call.execute()
+        } finally {
+            if (activeCall === call) activeCall = null
+        }
+    }
+
     // ---------- vision-language: text + optional screenshot ----------
 
-    /** Multimodal step. jpeg==null falls back to text-only (same as [nextAction]). */
+    /** Multimodal step. jpeg==null falls back to the text-only [nextAction]. */
     fun nextActionMultimodal(
         vlmProvider: String, vlmModel: String, apiKey: String,
         system: String, user: String, jpeg: ByteArray?,
+        baseUrl: String = "",
     ): String {
-        if (jpeg == null) return nextAction(vlmProvider, vlmModel, apiKey, system, user)
+        if (jpeg == null) return nextAction(vlmProvider, vlmModel, apiKey, system, user, baseUrl)
         val b64 = Base64.encodeToString(jpeg, Base64.NO_WRAP)
         return when (vlmProvider) {
             "Gemini" -> {
@@ -42,9 +74,12 @@ object CloudClients {
                     .put("generationConfig", JSONObject().put("response_mime_type", "application/json"))
                     .toString().toRequestBody(JSON)
                 val req = Request.Builder()
-                    .url("https://generativelanguage.googleapis.com/v1beta/models/$vlmModel:generateContent?key=$apiKey")
+                    .url("https://generativelanguage.googleapis.com/v1beta/models/$vlmModel:generateContent")
+                    // The key goes in a header, not the query string: URLs end up
+                    // in proxy logs and crash reports, headers do not.
+                    .header("x-goog-api-key", apiKey)
                     .post(body).build()
-                http.newCall(req).execute().use { r ->
+                execute(req).use { r ->
                     JSONObject(r.body!!.string())
                         .getJSONArray("candidates").getJSONObject(0)
                         .getJSONObject("content").getJSONArray("parts")
@@ -60,7 +95,7 @@ object CloudClients {
                 val (url, auth) = if (vlmProvider == "OpenRouter") {
                     "https://openrouter.ai/api/v1/chat/completions" to "Bearer $apiKey"
                 } else {
-                    "https://api.openai.com/v1/chat/completions" to "Bearer $apiKey"
+                    chatCompletionsUrl(baseUrl) to "Bearer $apiKey"
                 }
                 val body = JSONObject()
                     .put("model", vlmModel.ifBlank { "gpt-4o-mini" })
@@ -71,7 +106,7 @@ object CloudClients {
                     .put("max_tokens", 500)
                     .toString().toRequestBody(JSON)
                 val req = Request.Builder().url(url).header("Authorization", auth).post(body).build()
-                http.newCall(req).execute().use { r ->
+                execute(req).use { r ->
                     val root = JSONObject(r.body!!.string())
                     if (vlmProvider == "OpenRouter") {
                         root.getJSONArray("choices").getJSONObject(0)
@@ -85,11 +120,73 @@ object CloudClients {
         }
     }
 
-    /** Returns ONE raw JSON action string from the VLM. Caller validates via RustBridge.parseActionSafe. */
+    /**
+     * Text-only request (no screenshot). This builds the body itself rather
+     * than delegating back to [nextActionMultimodal] with a null image — that
+     * delegation was mutually recursive and blew the stack with a
+     * `StackOverflowError` on every text-only call.
+     */
     fun nextAction(
         vlmProvider: String, vlmModel: String, apiKey: String, system: String, user: String,
+        baseUrl: String = "",
     ): String {
-        return nextActionMultimodal(vlmProvider, vlmModel, apiKey, system, user, null)
+        return when (vlmProvider) {
+            "Gemini" -> {
+                val parts = JSONArray().put(JSONObject().put("text", user))
+                val body = JSONObject()
+                    .put("system_instruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
+                    .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+                    .put("generationConfig", JSONObject().put("response_mime_type", "application/json"))
+                    .toString().toRequestBody(JSON)
+                val req = Request.Builder()
+                    .url("https://generativelanguage.googleapis.com/v1beta/models/$vlmModel:generateContent")
+                    .header("x-goog-api-key", apiKey)
+                    .post(body).build()
+                execute(req).use { r ->
+                    JSONObject(r.body!!.string())
+                        .getJSONArray("candidates").getJSONObject(0)
+                        .getJSONObject("content").getJSONArray("parts")
+                        .getJSONObject(0).getString("text").trim()
+                }
+            }
+            else -> {
+                val body = JSONObject()
+                    .put("model", vlmModel.ifBlank { "gpt-4o-mini" })
+                    .put("messages", JSONArray()
+                        .put(JSONObject().put("role", "system").put("content", system))
+                        .put(JSONObject().put("role", "user").put("content", user)))
+                    .put("response_format", JSONObject().put("type", "json_object"))
+                    .put("max_tokens", 500)
+                    .toString().toRequestBody(JSON)
+                val (url, auth) = if (vlmProvider == "OpenRouter") {
+                    "https://openrouter.ai/api/v1/chat/completions" to "Bearer $apiKey"
+                } else {
+                    chatCompletionsUrl(baseUrl) to "Bearer $apiKey"
+                }
+                val req = Request.Builder().url(url).header("Authorization", auth).post(body).build()
+                execute(req).use { r ->
+                    JSONObject(r.body!!.string())
+                        .getJSONArray("choices").getJSONObject(0)
+                        .getJSONObject("message").getString("content").trim()
+                }
+            }
+        }
+    }
+
+    /**
+     * Chat-completions URL for the OpenAI-compatible provider.
+     *
+     * An empty [baseUrl] keeps the default OpenAI endpoint, so existing
+     * installs behave exactly as before. A custom base URL lets the user point
+     * the agent at any OpenAI-compatible server (vLLM, Ollama, LM Studio, an
+     * NVIDIA NIM deployment, …). The path is appended only when the caller
+     * gave a bare base, so a full endpoint URL is also accepted.
+     */
+    fun chatCompletionsUrl(baseUrl: String): String {
+        val b = baseUrl.trim().trimEnd('/')
+        if (b.isEmpty()) return "https://api.openai.com/v1/chat/completions"
+        if (b.endsWith("/chat/completions")) return b
+        return "$b/chat/completions"
     }
 
     // ---------- speech-to-text: mic file -> goal text ----------
@@ -110,9 +207,10 @@ object CloudClients {
                         .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
                         .toString().toRequestBody(JSON)
                     val req = Request.Builder()
-                        .url("https://generativelanguage.googleapis.com/v1beta/models/${sttModel.ifBlank { "gemini-2.0-flash" }}:generateContent?key=$apiKey")
+                        .url("https://generativelanguage.googleapis.com/v1beta/models/${sttModel.ifBlank { "gemini-2.0-flash" }}:generateContent")
+                        .header("x-goog-api-key", apiKey)
                         .post(body).build()
-                    http.newCall(req).execute().use { r ->
+                    execute(req).use { r ->
                         JSONObject(r.body!!.string())
                             .getJSONArray("candidates").getJSONObject(0)
                             .getJSONObject("content").getJSONArray("parts")
@@ -129,10 +227,9 @@ object CloudClients {
                         .url("https://api.openai.com/v1/audio/transcriptions")
                         .header("Authorization", "Bearer $apiKey")
                         .post(body).build()
-                    http.newCall(req).execute().use { r ->
+                    execute(req).use { r ->
                         JSONObject(r.body!!.string()).optString("text", "").trim()
-                    }
-                }
+                    }                }
             }
         } catch (_: Throwable) { "" }
     }
@@ -160,7 +257,7 @@ object CloudClients {
                         .url("https://api.openai.com/v1/audio/speech")
                         .header("Authorization", "Bearer $apiKey")
                         .post(body).build()
-                    http.newCall(req).execute().use { r ->
+                    execute(req).use { r ->
                         if (!r.isSuccessful) return false
                         outFile.outputStream().use { out -> r.body!!.byteStream().copyTo(out) }
                         true

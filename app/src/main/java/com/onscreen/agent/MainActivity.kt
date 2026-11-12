@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
@@ -87,6 +89,15 @@ fun SettingsScreen() {
             if (VoiceMemo.start(ctx)) recording = true else log = "Mic unavailable."
         } else log = "Mic permission denied."
     }
+
+    // The foreground-service notification is the only visible indication that
+    // the agent is running and the only Stop button the user can reach. On
+    // Android 13+ it needs POST_NOTIFICATIONS, otherwise the system hides it
+    // and the agent becomes invisible and unstoppable from outside the app.
+    val notifPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) log = "Notifications denied — the agent's Stop button will not be visible."
+    }
+
     val captureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         ctx.startForegroundService(Intent(ctx, AgentService::class.java).apply {
             putExtra("goal", goal)
@@ -97,14 +108,23 @@ fun SettingsScreen() {
     }
 
     @Composable
-    fun ByokCard(title: String, providers: Map<String, List<String>>, pKey: String, mKey: String, slot: String) {
+    fun ByokCard(
+        title: String,
+        providers: Map<String, List<String>>,
+        pKey: String,
+        mKey: String,
+        slot: String,
+        showBaseUrl: Boolean = false,
+    ) {
         var provider by remember { mutableStateOf("") }
         var model by remember { mutableStateOf("") }
         var key by remember { mutableStateOf("") }
+        var baseUrl by remember { mutableStateOf("") }
         LaunchedEffect(Unit) {
             provider = load(pKey).ifBlank { providers.keys.first() }
             model = load(mKey).ifBlank { providers.values.first().first() }
             key = SettingsStore.getKey(ctx, slot).let { if (it.isNotBlank()) "••••••" else "" }
+            if (showBaseUrl) baseUrl = load("vlmBaseUrl")
         }
         ElevatedCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             Column(Modifier.padding(12.dp)) {
@@ -139,10 +159,19 @@ fun SettingsScreen() {
                 }
                 OutlinedTextField(key, { key = it }, label = { Text("API key ($slot) — stored encrypted on-device") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true)
+                if (showBaseUrl) {
+                    OutlinedTextField(
+                        baseUrl, { baseUrl = it },
+                        label = { Text("Custom base URL (optional, OpenAI-compatible)") },
+                        supportingText = { Text("Leave empty for api.openai.com. Use for vLLM, Ollama, LM Studio, NIM…") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    )
+                }
                 Button(onClick = {
                     scope.launch {
                         SettingsStore.set(ctx, pKey, provider); SettingsStore.set(ctx, mKey, model)
                         if (key != "••••••" && key.isNotBlank()) SettingsStore.putKey(ctx, slot, key)
+                        if (showBaseUrl) SettingsStore.set(ctx, "vlmBaseUrl", baseUrl.trim())
                         log = "$title saved: $provider / $model"
                     }
                 }, modifier = Modifier.padding(top = 6.dp)) { Text("Save $title") }
@@ -155,7 +184,7 @@ fun SettingsScreen() {
         Text("Android 15+ (minSdk 35). No backend. Paste keys, pick a model in each of the 3 slots, speak or type a goal, press Play.",
             style = MaterialTheme.typography.bodyMedium)
         ByokCard("1 · Speech-to-text (whisper.cpp default offline)", SettingsStore.STT_MODELS, "sttProvider", "sttModel", "stt")
-        ByokCard("2 · Vision-language agent brain", SettingsStore.VLM_MODELS, "vlmProvider", "vlmModel", "vlm")
+        ByokCard("2 · Vision-language agent brain", SettingsStore.VLM_MODELS, "vlmProvider", "vlmModel", "vlm", showBaseUrl = true)
         ByokCard("3 · Text-to-speech (KittenTTS default offline)", SettingsStore.TTS_MODELS, "ttsProvider", "ttsModel", "tts")
         ModelsSection()
         OutlinedTextField(goal, { goal = it }, label = { Text("Goal, e.g. Turn on Dark theme in Settings") }, modifier = Modifier.fillMaxWidth())
@@ -184,6 +213,13 @@ fun SettingsScreen() {
             }, enabled = !busy) { Text(if (recording) "Stop mic" else "Mic") }
             Button(onClick = {
                 // Screen capture permission doubles as the Play gate: result starts the service.
+                // Make sure the notification permission is granted first, so the
+                // agent's foreground notification (and its Stop button) is visible.
+                if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED
+                ) {
+                    notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
                 captureLauncher.launch(ScreenCapture.intentForResult(activity))
             }, enabled = !recording && !busy) { Text("Play") }
             OutlinedButton(onClick = { ctx.startService(Intent(ctx, AgentService::class.java).setAction("STOP")) }) { Text("Stop") }

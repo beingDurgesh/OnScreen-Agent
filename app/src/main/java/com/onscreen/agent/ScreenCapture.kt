@@ -18,15 +18,26 @@ import android.util.Log
  * Full MediaProjection capture. One frame per call, downscaled so the long
  * edge is <= MAX_EDGE, JPEG q60. Every surface/image/display is closed before
  * return — no bitmap or surface may escape this function (RAM rule).
+ *
+ * Android allows **one** VirtualDisplay per MediaProjection instance: calling
+ * `createVirtualDisplay` twice on the same projection throws
+ * `SecurityException("Don't re-use the resultData ...")`. The display and its
+ * ImageReader are therefore created once and reused for every step.
+ *
+ * The display is created lazily on the first capture rather than when the
+ * permission is granted: creating it while the system app-picker is still on
+ * screen leaves it attached to a display that never receives frames.
  */
 object ScreenCapture {
     private const val TAG = "ScreenCapture"
     const val MAX_EDGE = 960
 
-    /** How long to wait for the compositor to deliver the first frame. */
+    /** How long to wait for the compositor to deliver a frame. */
     private const val FRAME_TIMEOUT_MS = 2000L
 
     @Volatile private var projection: MediaProjection? = null
+    @Volatile private var virtualDisplay: android.hardware.display.VirtualDisplay? = null
+    @Volatile private var reader: ImageReader? = null
 
     /**
      * Must be registered before createVirtualDisplay() or the projection
@@ -53,11 +64,11 @@ object ScreenCapture {
             Log.w(TAG, "getMediaProjection failed", t); null
         }
         if (mp == null) return
+
         val cb = object : MediaProjection.Callback() {
             override fun onStop() {
                 Log.w(TAG, "projection stopped by the system")
-                projection = null
-                callback = null
+                release()
             }
         }
         callback = cb
@@ -73,6 +84,10 @@ object ScreenCapture {
     fun hasPermission(): Boolean = projection != null
 
     fun release() {
+        try { virtualDisplay?.release() } catch (_: Throwable) { /* ignore */ }
+        virtualDisplay = null
+        try { reader?.close() } catch (_: Throwable) { /* ignore */ }
+        reader = null
         try { projection?.stop() } catch (_: Throwable) { /* already stopped */ }
         projection = null
         callback = null
@@ -85,22 +100,35 @@ object ScreenCapture {
         val w = dm.widthPixels
         val h = dm.heightPixels
         if (w <= 0 || h <= 0) return null
-        val reader = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 2)
-        var vd: android.hardware.display.VirtualDisplay? = null
+
+        // Create the single VirtualDisplay for this projection on first use.
+        var r = reader
+        if (r == null) {
+            try {
+                val created = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 2)
+                // API 35+ signature: (name, w, h, dpi, flags, surface, callback, handler).
+                // The old (name, w, h, dpi, surface, flags) overload was removed.
+                virtualDisplay = mp.createVirtualDisplay(
+                    "onscreen", w, h, dm.densityDpi,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    created.surface, null, null
+                )
+                reader = created
+                r = created
+                Log.i(TAG, "virtual display created ${w}x$h")
+            } catch (t: Throwable) {
+                Log.w(TAG, "createVirtualDisplay failed", t)
+                return null
+            }
+        }
+
         try {
-            // API 35+ signature: (name, w, h, dpi, flags, surface, callback, handler).
-            // The old (name, w, h, dpi, surface, flags) overload was removed.
-            vd = mp.createVirtualDisplay(
-                "onscreen", w, h, dm.densityDpi,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                reader.surface, null, null
-            )
-            // The compositor needs a moment to start pushing frames; poll until
-            // one arrives instead of guessing a fixed delay.
+            // The compositor needs a moment to push frames; poll until one
+            // arrives instead of guessing a fixed delay.
             var img: Image? = null
             val deadline = System.currentTimeMillis() + FRAME_TIMEOUT_MS
             while (img == null && System.currentTimeMillis() < deadline) {
-                img = reader.acquireLatestImage()
+                img = r.acquireLatestImage()
                 if (img == null) Thread.sleep(60)
             }
             if (img == null) {
@@ -137,9 +165,6 @@ object ScreenCapture {
         } catch (t: Throwable) {
             Log.w(TAG, "capture failed", t)
             return null
-        } finally {
-            try { vd?.release() } catch (_: Throwable) { /* ignore */ }
-            try { reader.close() } catch (_: Throwable) { /* ignore */ }
         }
     }
 }

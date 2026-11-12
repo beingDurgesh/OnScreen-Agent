@@ -20,6 +20,7 @@ object SettingsStore {
         "vlmModel" to stringPreferencesKey("vlm_model"),
         "ttsProvider" to stringPreferencesKey("tts_provider"),
         "ttsModel" to stringPreferencesKey("tts_model"),
+        "vlmBaseUrl" to stringPreferencesKey("vlm_base_url"),
         "braveKeyRef" to stringPreferencesKey("brave_key_ref"),
         "guardrailsOff" to stringPreferencesKey("guardrails_off"),
     )
