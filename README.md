@@ -1,9 +1,10 @@
 # OnScreen-Agent — Rust Cloud (Android 15+)
 
-Status: **functional scaffold v0.3 — full agent loop written, never compiled.**
-Honest state: all code paths exist (capture → VLM → act, mic → goal, spoken
-status), but no build has ever run here. Expect 1–3 rounds of compile fixes
-from CI logs after push. Do not distribute the APK until a device test passes.
+Status: **v0.4 — compiles, CI green, APK builds. Never run on a device.**
+Honest state: the full loop exists (capture → VLM → act, mic → goal, spoken
+status) and the build pipeline is proven — CI produces a signed-debug APK with
+the Rust `.so` inside. What is *not* proven is runtime behaviour on a real
+Android 15 phone. Do not distribute the APK until a device test passes.
 
 Cloud BYOK: user pastes their own API key and picks a model in each of the 3
 slots (STT / VLM brain / TTS). No backend. Keys stay encrypted on the phone.
@@ -47,10 +48,16 @@ downloaded files is the next build; downloads land in `filesDir/models/<id>/`.
   download/mmap/quant code is still TODO.
 
 ## Build
-CI (`build-apk.yml`): `cargo test` + `assembleDebug` → APK artifact + SHA-256.
+CI (`build-apk.yml`): `cargo test` → cargo-ndk arm64 `.so` → `assembleDebug` →
+APK artifact + SHA-256. Latest green run: [43144650617](https://github.com/beingDurgesh/OnScreen-Agent/actions/runs/43144650617).
 Local (needs SDK 36 + NDK 27 + JDK 17 + Rust): `gradlew :app:assembleDebug`
-(`gradlew` scripts + wrapper jar are committed; this host has no SDK so no
-local build has ever run).
+(`gradlew` scripts + wrapper jar are committed). A local build produces
+`app-debug.apk` at ~7.9 MB.
+
+> Building inside a OneDrive-synced folder fails: the sync client holds locks on
+> Gradle's cache and the build dies with "Unable to delete directory
+> .../app/build/kotlin/...". Clone somewhere local (e.g. `C:\repos\OnScreen-Agent`)
+> and build there.
 
 Push: contents of this folder are the repo root of
 `github.com/beingDurgesh/OnScreen-Agent`.
@@ -61,5 +68,5 @@ Push: contents of this folder are the repo root of
 - Cloud tokens bill to YOUR key. Step cap is 40. Test on a spare profile first.
 
 ## Verify
-- `cargo test -p agent-core` (CI)
+- `cargo test -p agent-core` (CI + local)
 - `python tools/check.py` (no SDK needed — 30+ static assertions)
