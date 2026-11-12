@@ -29,9 +29,15 @@ jobs:
         working-directory: rust/agent-core
         run: |
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
+          export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
           cargo ndk --target aarch64-linux-android --platform 35 -- build --release
           mkdir -p ../../app/src/main/jniLibs/arm64-v8a
-          cp target/aarch64-linux-android/arm64-v8a/release/libagent_core.so ../../app/src/main/jniLibs/arm64-v8a/
+          # cargo-ndk's output path varies by version; match on aarch64 so the
+          # host build from `cargo test` is never picked up by mistake.
+          SO="$(find target -type f -name libagent_core.so -path '*aarch64*' | head -n 1)"
+          echo "JNI lib: $SO"
+          test -n "$SO"
+          cp "$SO" ../../app/src/main/jniLibs/arm64-v8a/
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
       - name: Rename + hash
