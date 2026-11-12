@@ -1,13 +1,14 @@
-# OnScreen-Agent — Progress (updated: v0.4, commit 7f8e669)
+# OnScreen-Agent — Progress (updated: v0.4.0, commit e9bc88e)
 
 Two bars because they differ: **Written** = code exists. **Proven** = compiled/ran.
-Everything below compiles and the CI build is green. **Nothing has run on a
-device yet** — so "Proven" here means "it builds and its tests pass", not
-"it works on a phone".
+Everything below compiles, the CI build is green, and a **signed release APK is
+published**. **Nothing has run on a device yet** — so "Proven" here means "it
+builds, its tests pass, and the artifact is verified", not "it works on a
+phone".
 
 ```
 Written ██████████████░░░░░░  70%
-Proven  ███░░░░░░░░░░░░░░░░░░  20%  (compiles + CI green + cargo tests; no device run)
+Proven  ████░░░░░░░░░░░░░░░░  25%  (compiles + CI green + cargo tests + signed release; no device run)
 ```
 
 ## Tracks
@@ -23,7 +24,7 @@ Proven  ███░░░░░░░░░░░░░░░░░░  20%  (c
 | On-device (whisper/gemma/kitten) | █████░░░░░░ 50% | ░░░░░░░░░░ 0% | Downloads UI + verified URLs done; inference wiring TODO |
 | Build tooling (gradlew, CI) | ██████████ 100% | ██████████ 100% | CI green, APK + SHA-256 artifact uploaded |
 | Device test + metrics | ░░░░░░░░░░ 0% | ░░░░░░░░░░ 0% | APK size measured; idle PSS + real tasks still need a device |
-| Signed release | ░░░░░░░░░░ 0% | ░░░░░░░░░░ 0% | Testing pre-release only; signed release after device test |
+| Signed release | ██████████ 100% | ██░░░░░░░░░░ 20% | Signed release published (v0.4.0) — still not device-tested |
 
 ## TODO
 
@@ -45,7 +46,9 @@ Proven  ███░░░░░░░░░░░░░░░░░░  20%  (c
 - [ ] Run 3 real tasks end-to-end, fix runtime issues
 - [ ] Measure idle PSS < 180 MB (needs a device)
 - [ ] Gemini TTS speech-config flow (currently stub)
-- [ ] Signed release APK + SHA-256 + GitHub Release
+- [x] Signed release APK + SHA-256 + GitHub Release — [v0.4.0](https://github.com/beingDurgesh/OnScreen-Agent/releases/tag/v0.4.0)
+      (`OnScreen-Agent-v0.4.0.apk`, 2.75 MB, versionCode 3 / versionName 0.4.0, arm64-v8a,
+      release-signed, SHA-256 published alongside it)
 
 ### Later (on-device track)
 - [x] Model download manager (verified HF URLs, progress/cancel/delete, HF token for Gemma)
