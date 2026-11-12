@@ -48,7 +48,7 @@ object SettingsStore {
     )
 
     suspend fun get(ctx: Context, k: String): String? =
-        ctx.ds.data.map { it[P[k]] }.first()
+        ctx.ds.data.map { pref -> P[k]?.let { pref[it] } }.first()
 
     suspend fun set(ctx: Context, k: String, v: String) {
         ctx.ds.edit { it[P[k]!!] = v }

@@ -49,9 +49,12 @@ object ScreenCapture {
         val reader = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 2)
         var vd: android.hardware.display.VirtualDisplay? = null
         try {
+            // API 35+ signature: (name, w, h, dpi, flags, surface, callback, handler).
+            // The old (name, w, h, dpi, surface, flags) overload was removed.
             vd = mp.createVirtualDisplay(
-                "onscreen", w, h, dm.densityDpi, reader.surface,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR
+                "onscreen", w, h, dm.densityDpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                reader.surface, null, null
             )
             Thread.sleep(350) // let the compositor deliver a frame
             val img = reader.acquireLatestImage() ?: return null

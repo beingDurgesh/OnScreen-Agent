@@ -15,7 +15,7 @@ android {
         versionCode = 2
         versionName = "0.2.0-cloud-rust"
         ndk { abiFilters += listOf("arm64-v8a") } // cloud drop: 64-bit only, keeps APK <25MB
-        resConfigs += listOf("en")
+        resourceConfigurations += listOf("en")
     }
 
     buildTypes {
@@ -33,6 +33,19 @@ android {
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     packaging { resources { excludes += setOf("META-INF/*") } }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+// Keep the Java and Kotlin bytecode targets aligned (both 17) — otherwise
+// AGP fails with "Inconsistent JVM-target compatibility detected".
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
 
 dependencies {

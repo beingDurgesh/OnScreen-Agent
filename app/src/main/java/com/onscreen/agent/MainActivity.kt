@@ -7,7 +7,7 @@ import android.content.Intent
 import android.media.MediaRecorder
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityForResult
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -66,6 +66,7 @@ object VoiceMemo {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen() {
     val ctx = LocalContext.current
@@ -78,12 +79,12 @@ fun SettingsScreen() {
 
     suspend fun load(k: String) = SettingsStore.get(ctx, k) ?: ""
 
-    val micPerm = rememberLauncherForActivityForResult(ActivityResultContracts.RequestPermission()) { granted ->
+    val micPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             if (VoiceMemo.start(ctx)) recording = true else log = "Mic unavailable."
         } else log = "Mic permission denied."
     }
-    val captureLauncher = rememberLauncherForActivityForResult(ActivityResultContracts.StartActivityForResult()) { res ->
+    val captureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         ctx.startForegroundService(Intent(ctx, AgentService::class.java).apply {
             putExtra("goal", goal)
             putExtra("rc", res.resultCode)
@@ -109,20 +110,27 @@ fun SettingsScreen() {
                 var exp by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(expanded = exp, onExpandedChange = { exp = !exp }) {
                     OutlinedTextField(provider, { }, readOnly = true, label = { Text("Provider") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(exp) }, modifier = Modifier.menuAnchor().fillMaxWidth())
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(exp) },
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
                     ExposedDropdownMenu(expanded = exp, onDismissRequest = { exp = false }) {
                         providers.keys.forEach {
-                            DropdownMenuItem({ provider = it; model = providers[it]!!.first(); exp = false }, label = { Text(it) })
+                            DropdownMenuItem(
+                                text = { Text(it) },
+                                onClick = { provider = it; model = providers[it]!!.first(); exp = false },
+                            )
                         }
                     }
                 }
                 var mexp by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(expanded = mexp, onExpandedChange = { mexp = !mexp }) {
                     OutlinedTextField(model, { model = it }, label = { Text("Model (editable for OpenRouter/custom)") },
-                        modifier = Modifier.menuAnchor().fillMaxWidth())
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable).fillMaxWidth())
                     ExposedDropdownMenu(expanded = mexp, onDismissRequest = { mexp = false }) {
                         (providers[provider] ?: listOf(model)).forEach {
-                            DropdownMenuItem({ model = it; mexp = false }, label = { Text(it) })
+                            DropdownMenuItem(
+                                text = { Text(it) },
+                                onClick = { model = it; mexp = false },
+                            )
                         }
                     }
                 }

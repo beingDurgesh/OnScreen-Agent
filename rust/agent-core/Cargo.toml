@@ -19,7 +19,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 smallvec = { version = "1", features = ["union", "serde"] }
 whisper-rs = { version = "0.12", optional = true }
-ort = { version = "2", optional = true, default-features = false, features = ["onnxruntime"] }
+# ort has no stable 2.x on crates.io (only 2.0.0-rc.* pre-releases), so a bare
+# "2" requirement is unresolvable and breaks resolution even with the feature off.
+ort = { version = "2.0.0-rc.15", optional = true, default-features = false, features = ["download-binaries"] }
 
 [profile.release]
 opt-level = "z"      # min size -> less RAM/pages

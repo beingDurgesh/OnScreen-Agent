@@ -20,7 +20,7 @@ data class ModelFile(val url: String, val name: String, val bytes: Long)
  * Downloadable on-device pack. URLs below were verified against
  * huggingface.co file listings (Feb–Oct 2026 snapshots):
  * - whisper: ggerganov/whisper.cpp (MIT, public)
- * - gemma: ggml-org/*-GGUF, Q8_0 only — NO Q4 exists there (gated: gemma licence)
+ * - gemma: ggml-org/gemma-3n-*-it-GGUF, Q8_0 only — NO Q4 exists there (gated: gemma licence)
  * - kitten: KittenML/kitten-tts-nano-0.1 (Apache-2.0, public)
  */
 data class ModelEntry(
