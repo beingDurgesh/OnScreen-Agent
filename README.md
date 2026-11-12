@@ -54,6 +54,19 @@ Local (needs SDK 36 + NDK 27 + JDK 17 + Rust): `gradlew :app:assembleDebug`
 (`gradlew` scripts + wrapper jar are committed). A local build produces
 `app-debug.apk` at ~7.9 MB.
 
+The Rust `.so` is produced by cargo-ndk and is **not** in git — build it before
+assembling, or the APK ships without it and the app silently falls back to the
+Kotlin path:
+
+```bash
+cd rust/agent-core
+export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
+cargo ndk --target aarch64-linux-android --platform 35 -- build --release
+mkdir -p ../../app/src/main/jniLibs/arm64-v8a
+cp "$(find target -name libagent_core.so -path '*aarch64*' | head -1)" \
+   ../../app/src/main/jniLibs/arm64-v8a/
+```
+
 > Building inside a OneDrive-synced folder fails: the sync client holds locks on
 > Gradle's cache and the build dies with "Unable to delete directory
 > .../app/build/kotlin/...". Clone somewhere local (e.g. `C:\repos\OnScreen-Agent`)
@@ -61,6 +74,44 @@ Local (needs SDK 36 + NDK 27 + JDK 17 + Rust): `gradlew :app:assembleDebug`
 
 Push: contents of this folder are the repo root of
 `github.com/beingDurgesh/OnScreen-Agent`.
+
+## Signing
+Release APKs are signed with a key that is **not** in git. CI pulls it from
+repo secrets and `app/build.gradle.kts` picks it up from the environment:
+
+| Env var | Repo secret |
+|---|---|
+| `ANDROID_KEYSTORE_PATH` | (path, set by the workflow after decoding) |
+| `ANDROID_KEYSTORE_PASSWORD` | `ANDROID_KEYSTORE_PASSWORD` |
+| `ANDROID_KEY_ALIAS` | `ANDROID_KEY_ALIAS` |
+| `ANDROID_KEY_PASSWORD` | `ANDROID_KEY_PASSWORD` |
+| — | `ANDROID_KEYSTORE_BASE64` (base64 of the `.jks`) |
+
+Locally the release build falls back to the **debug** signing config when
+`ANDROID_KEYSTORE_PATH` is unset, so `gradlew :app:assembleRelease` always
+works for a fresh clone. Without the real key the APK is still installable —
+but it is signed with a throwaway key, so it cannot upgrade over a release
+build, and vice versa.
+
+**Back up the keystore.** If it is lost, published builds can never be updated
+in place; users would have to uninstall and reinstall.
+
+## Releasing
+Push a `v*` tag. `release-apk.yml` builds the signed **release** variant
+(minified + resource-shrunk, ~2.3 MB), hashes it, and publishes it as a
+GitHub Release:
+
+```bash
+git tag -a v0.4.0 -m "v0.4.0"
+git push origin v0.4.0
+```
+
+A tag containing a hyphen (e.g. `v0.4.0-beta.1`) is published as a
+pre-release instead of the "Latest" release. Stable download URL:
+
+```
+https://github.com/beingDurgesh/OnScreen-Agent/releases/latest/download/OnScreen-Agent-v0.4.0.apk
+```
 
 ## Safety (same as upstream — do not skip)
 - Play Protect will flag it (accessibility + screen control). Banking/wallet apps may refuse

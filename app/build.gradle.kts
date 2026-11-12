@@ -4,6 +4,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Release signing. CI supplies the keystore through ANDROID_KEYSTORE_PATH +
+// friends (secrets); locally we fall back to the debug key so a plain
+// `gradlew assembleRelease` still works for anyone who clones the repo.
+// The release key is NOT in git — see README "Signing".
+val releaseKeystore: String? = System.getenv("ANDROID_KEYSTORE_PATH")
+    ?.takeIf { it.isNotBlank() && file(it).exists() }
+
 android {
     namespace = "com.onscreen.agent"
     compileSdk = 36
@@ -12,10 +19,23 @@ android {
         applicationId = "com.onscreen.agent"
         minSdk = 35 // Android 15 per request. Target+min = 15+. See README for minSdk 29 trade-off.
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0-cloud-rust"
+        versionCode = 3
+        versionName = "0.4.0"
         ndk { abiFilters += listOf("arm64-v8a") } // cloud drop: 64-bit only, keeps APK <25MB
         resourceConfigurations += listOf("en")
+    }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
     }
 
     buildTypes {
@@ -25,6 +45,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         release {
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

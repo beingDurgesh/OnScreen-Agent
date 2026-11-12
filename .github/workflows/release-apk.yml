@@ -1,4 +1,4 @@
-name: release-testing-apk
+name: release-apk
 on:
   push:
     tags: ["v*"]
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  testing-apk:
+  release-apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,21 +38,62 @@ jobs:
           echo "JNI lib: $SO"
           test -n "$SO"
           cp "$SO" ../../app/src/main/jniLibs/arm64-v8a/
-      - name: Assemble debug APK
+      - name: Restore release keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+      - name: Assemble signed release APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug --stacktrace
+          ./gradlew :app:assembleRelease --stacktrace
       - name: Rename + hash
         run: |
           TAG="${GITHUB_REF_NAME:-manual}"
-          OUT="OnScreen-Agent-${TAG}-testing.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$OUT"
+          OUT="OnScreen-Agent-${TAG}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$OUT"
+          # Fail the release if the APK is not properly signed.
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$OUT"
           sha256sum "$OUT" | tee SHA256.txt
-      - name: Publish testing pre-release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          prerelease: true
+          # A hyphen in the tag means a pre-release (v0.4.0-beta.1, v0.4-testing).
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
+          body: |
+            ## OnScreen-Agent — Rust Cloud (Android 15+)
+
+            BYOK agent loop: capture → VLM → act. No backend; your API keys stay
+            encrypted on the phone.
+
+            ### Install
+            1. Download `OnScreen-Agent-*.apk` below.
+            2. Check the SHA-256 in `SHA256.txt` if you want to verify it.
+            3. On your phone: Settings → Apps → Special app access → **Install unknown apps** → allow your browser/files app.
+            4. Install the APK, then open OnScreen Agent and grant:
+               - **Accessibility** (Settings → Accessibility → OnScreen Agent) — required to tap things
+               - **Screen capture** — required to see the screen
+               - **Microphone** — only if you use the voice goal
+
+            ### Safety — read before installing
+            - This app controls your screen. It is **not** on Google Play, so Play
+              Protect will warn you. That warning is expected for accessibility
+              automation.
+            - Banking and wallet apps may refuse to run while an accessibility
+              service is enabled. Test on a spare profile first.
+            - Cloud tokens bill to **your** API key. The agent is capped at 40 steps
+              per run.
+            - **Stop always wins** — the foreground notification has a Stop button
+              and the loop halts on demand.
+            - This is a **testing** build. It has been built and its unit tests run
+              in CI, but it has **not** been exercised on a physical device yet.
+              Use it on a throwaway profile, not on a phone you depend on.
+
+            ### Requirements
+            Android 15 (API 35) or newer · arm64-v8a only
           files: |
-            OnScreen-Agent-*-testing.apk
+            OnScreen-Agent-*.apk
             SHA256.txt
