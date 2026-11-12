@@ -25,6 +25,9 @@ import java.io.File
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Touch the bridge at startup so the native lib is loaded (and any
+        // failure is visible in logcat) before the agent loop needs it.
+        android.util.Log.i("OnScreen", "Rust core loaded=${RustBridge.loaded}")
         setContent { MaterialTheme { SettingsScreen() } }
     }
 }

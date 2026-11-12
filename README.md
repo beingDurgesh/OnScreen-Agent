@@ -1,10 +1,12 @@
 # OnScreen-Agent — Rust Cloud (Android 15+)
 
-Status: **v0.4 — compiles, CI green, APK builds. Never run on a device.**
+Status: **v0.4.1 — runs on Android 15, CI green, signed release published.**
 Honest state: the full loop exists (capture → VLM → act, mic → goal, spoken
-status) and the build pipeline is proven — CI produces a signed-debug APK with
-the Rust `.so` inside. What is *not* proven is runtime behaviour on a real
-Android 15 phone. Do not distribute the APK until a device test passes.
+status), the build pipeline is proven, and the app has been run on an Android 15
+emulator — the accessibility dump, the Rust tree trim and the screenshot
+capture all work, and idle PSS measures 68 MB. What is **not** proven is the
+loop driving a live cloud model end to end, or behaviour on a physical phone.
+Use it on a throwaway profile until then.
 
 Cloud BYOK: user pastes their own API key and picks a model in each of the 3
 slots (STT / VLM brain / TTS). No backend. Keys stay encrypted on the phone.

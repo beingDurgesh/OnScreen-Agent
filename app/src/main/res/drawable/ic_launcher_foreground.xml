@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- screen frame -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M36,32 h36 a5,5 0 0 1 5,5 v34 a5,5 0 0 1 -5,5 h-36 a5,5 0 0 1 -5,-5 v-34 a5,5 0 0 1 5,-5 z"
+        android:strokeColor="#8B5CF6"
+        android:strokeWidth="5" />
+    <!-- tap target -->
+    <path
+        android:fillColor="#00E5A0"
+        android:pathData="M54,54 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
+    <!-- action ripple -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,54 m-15,0 a15,15 0 1,0 30,0 a15,15 0 1,0 -30,0"
+        android:strokeColor="#00E5A0"
+        android:strokeWidth="3" />
+</vector>

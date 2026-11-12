@@ -88,9 +88,12 @@ jobs:
               per run.
             - **Stop always wins** — the foreground notification has a Stop button
               and the loop halts on demand.
-            - This is a **testing** build. It has been built and its unit tests run
-              in CI, but it has **not** been exercised on a physical device yet.
-              Use it on a throwaway profile, not on a phone you depend on.
+            - This is a **testing** build. It has been built, its unit tests run in
+              CI, and it has been run on an Android 15 emulator (accessibility
+              dump, Rust trim and screen capture all verified). It has **not** yet
+              driven a live cloud model end to end, and it has not been tried on a
+              physical phone. Use it on a throwaway profile, not on a phone you
+              depend on.
 
             ### Requirements
             Android 15 (API 35) or newer · arm64-v8a only

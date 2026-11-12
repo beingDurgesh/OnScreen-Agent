@@ -6,9 +6,13 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
+import android.media.Image
 import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 
 /**
  * Full MediaProjection capture. One frame per call, downscaled so the long
@@ -16,9 +20,20 @@ import android.media.projection.MediaProjectionManager
  * return — no bitmap or surface may escape this function (RAM rule).
  */
 object ScreenCapture {
+    private const val TAG = "ScreenCapture"
     const val MAX_EDGE = 960
 
+    /** How long to wait for the compositor to deliver the first frame. */
+    private const val FRAME_TIMEOUT_MS = 2000L
+
     @Volatile private var projection: MediaProjection? = null
+
+    /**
+     * Must be registered before createVirtualDisplay() or the projection
+     * delivers no frames (Android 14+ / API 34+ requirement). Held in a field
+     * so it is not garbage collected while the projection is alive.
+     */
+    private var callback: MediaProjection.Callback? = null
 
     fun intentForResult(a: Activity): Intent {
         val mpm = a.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -27,9 +42,32 @@ object ScreenCapture {
 
     fun onPermissionResult(ctx: Context, resultCode: Int, data: Intent?) {
         release()
-        if (resultCode != Activity.RESULT_OK || data == null) return
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            Log.w(TAG, "projection denied (resultCode=$resultCode)")
+            return
+        }
         val mpm = ctx.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        projection = try { mpm.getMediaProjection(resultCode, data) } catch (_: Throwable) { null }
+        val mp = try {
+            mpm.getMediaProjection(resultCode, data)
+        } catch (t: Throwable) {
+            Log.w(TAG, "getMediaProjection failed", t); null
+        }
+        if (mp == null) return
+        val cb = object : MediaProjection.Callback() {
+            override fun onStop() {
+                Log.w(TAG, "projection stopped by the system")
+                projection = null
+                callback = null
+            }
+        }
+        callback = cb
+        try {
+            mp.registerCallback(cb, Handler(Looper.getMainLooper()))
+        } catch (t: Throwable) {
+            Log.w(TAG, "registerCallback failed", t)
+        }
+        projection = mp
+        Log.i(TAG, "projection granted")
     }
 
     fun hasPermission(): Boolean = projection != null
@@ -37,6 +75,7 @@ object ScreenCapture {
     fun release() {
         try { projection?.stop() } catch (_: Throwable) { /* already stopped */ }
         projection = null
+        callback = null
     }
 
     /** Returns JPEG bytes, or null when permission is missing / no frame ready. */
@@ -56,8 +95,18 @@ object ScreenCapture {
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 reader.surface, null, null
             )
-            Thread.sleep(350) // let the compositor deliver a frame
-            val img = reader.acquireLatestImage() ?: return null
+            // The compositor needs a moment to start pushing frames; poll until
+            // one arrives instead of guessing a fixed delay.
+            var img: Image? = null
+            val deadline = System.currentTimeMillis() + FRAME_TIMEOUT_MS
+            while (img == null && System.currentTimeMillis() < deadline) {
+                img = reader.acquireLatestImage()
+                if (img == null) Thread.sleep(60)
+            }
+            if (img == null) {
+                Log.w(TAG, "no frame within ${FRAME_TIMEOUT_MS}ms")
+                return null
+            }
             try {
                 val plane = img.planes[0]
                 val rowStride = plane.rowStride
@@ -85,7 +134,8 @@ object ScreenCapture {
             } finally {
                 img.close()
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            Log.w(TAG, "capture failed", t)
             return null
         } finally {
             try { vd?.release() } catch (_: Throwable) { /* ignore */ }

@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaPlayer
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import org.json.JSONObject
@@ -14,6 +15,8 @@ import java.io.File
 
 /** Foreground loop driver: perceive (AX + screenshot) → VLM → Rust-validate → act. Stop-first design. */
 class AgentService : Service() {
+    companion object { private const val TAG = "AgentService" }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var running = false
 
@@ -43,19 +46,24 @@ class AgentService : Service() {
             ScreenCapture.onPermissionResult(this@AgentService, rc, data)
             val history = mutableListOf<String>()
             repeat(40) { // hard step cap: token + safety bound
-                if (!running) return@launch
+                if (!running) { stopSelf(); return@launch }
                 try {
                     val svc = AgentAccessibilityService.instance
                     if (svc == null) { delay(1500); return@repeat }
                     val dump = svc.dumpIndexed()
                     val tree = RustBridge.trimTreeSafe(dump.text)
                     val jpeg = try { ScreenCapture.captureJpeg(this@AgentService) } catch (_: Throwable) { null }
+                    Log.i(
+                        TAG,
+                        "step ${history.size}: ax=${dump.nodes.size} tree=${tree.length}B/" +
+                            "${tree.lines().size}L head='${tree.take(16)}' jpeg=${jpeg?.size ?: -1}B"
+                    )
                     val vlmP = SettingsStore.get(this@AgentService, "vlmProvider") ?: "OpenAI"
                     val vlmM = SettingsStore.get(this@AgentService, "vlmModel") ?: "gpt-4o-mini"
                     val key = SettingsStore.getKey(this@AgentService, "vlm")
                     if (key.isBlank()) {
                         speakStatus("Missing agent API key. Save a key first.")
-                        running = false; return@launch
+                        running = false; stopSelf(); return@launch
                     }
                     val system = "You are an Android operator. Reply with ONE JSON action only: " +
                         """{"type":"click","id":N}|{"type":"longClick","id":N}|{"type":"input","id":N,"text":"..."}|{"type":"scroll","dir":"down"}|{"type":"back"}|{"type":"home"}|{"type":"openApp","pkg":"com.example"}|{"type":"wait","ms":500}|{"type":"done"}|{"type":"needHelp","reason":"..."} Use only ids listed in the screen text."""
@@ -65,10 +73,10 @@ class AgentService : Service() {
                     history.add(valid.take(300))
                     val type = try { JSONObject(valid).optString("type") } catch (_: Throwable) { "needHelp" }
                     when (type) {
-                        "done" -> { speakStatus("Task complete."); running = false; return@launch }
+                        "done" -> { speakStatus("Task complete."); running = false; stopSelf(); return@launch }
                         "needHelp" -> {
                             val reason = try { JSONObject(valid).optString("reason", "I need help.") } catch (_: Throwable) { "I need help." }
-                            speakStatus(reason.take(200)); running = false; return@launch
+                            speakStatus(reason.take(200)); running = false; stopSelf(); return@launch
                         }
                         "openApp" -> {
                             val pkg = try { JSONObject(valid).optString("pkg") } catch (_: Throwable) { "" }

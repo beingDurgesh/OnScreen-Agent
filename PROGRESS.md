@@ -1,14 +1,15 @@
-# OnScreen-Agent — Progress (updated: v0.4.0, commit e9bc88e)
+# OnScreen-Agent — Progress (updated: v0.4.1)
 
 Two bars because they differ: **Written** = code exists. **Proven** = compiled/ran.
 Everything below compiles, the CI build is green, and a **signed release APK is
-published**. **Nothing has run on a device yet** — so "Proven" here means "it
-builds, its tests pass, and the artifact is verified", not "it works on a
-phone".
+published**. The app has now been **run on an Android 15 emulator** — the
+accessibility dump, the Rust tree trim and the screenshot capture all work —
+but it has **not** been run against a live cloud model, so end-to-end task
+success is still unproven.
 
 ```
 Written ██████████████░░░░░░  70%
-Proven  ████░░░░░░░░░░░░░░░░  25%  (compiles + CI green + cargo tests + signed release; no device run)
+Proven  ██████░░░░░░░░░░░░░░░  30%  (runs on Android 15 + CI green + signed release; no live model run)
 ```
 
 ## Tracks
@@ -16,15 +17,15 @@ Proven  ████░░░░░░░░░░░░░░░░  25%  (comp
 | Track | Written | Proven | Note |
 |---|---|---|---|
 | Spec / docs (SPEC, PLAN, README) | ██████████ 100% | ██████████ 100% | Done |
-| Settings UI + BYOK store | ██████████ 100% | ██░░░░░░░░░░ 20% | Compiles; never run on a device |
-| Screen capture | ██████████ 100% | ██░░░░░░░░░░ 20% | Compiles; `createVirtualDisplay` API-36-correct; never run |
-| Agent loop + stable IDs | ██████████ 100% | ██░░░░░░░░░░ 20% | Compiles; never run |
+| Settings UI + BYOK store | ██████████ 100% | ███░░░░░░░░ 30% | UI renders and scrolls on Android 15 |
+| Screen capture | ██████████ 100% | ████░░░░░░░ 40% | Captures a real frame (43 KB JPEG) on Android 15 |
+| Agent loop + stable IDs | ██████████ 100% | ████░░░░░░░ 40% | Loop runs: 43 AX nodes → Rust trim → JPEG |
 | Cloud VLM/STT/TTS calls | ████████░░ 80% | █░░░░░░░░░░ 10% | Compiles; Gemini TTS + KittenTTS still stubs |
-| Rust core (parse/budget) | ██████████ 100% | ██████████ 100% | `cargo test` green locally **and** in CI; arm64 `.so` shipped in the APK |
+| Rust core (parse/budget) | ██████████ 100% | ██████████ 100% | `cargo test` green locally **and** in CI; arm64 `.so` ships in the APK and loads on device |
 | On-device (whisper/gemma/kitten) | █████░░░░░░ 50% | ░░░░░░░░░░ 0% | Downloads UI + verified URLs done; inference wiring TODO |
 | Build tooling (gradlew, CI) | ██████████ 100% | ██████████ 100% | CI green, APK + SHA-256 artifact uploaded |
-| Device test + metrics | ░░░░░░░░░░ 0% | ░░░░░░░░░░ 0% | APK size measured; idle PSS + real tasks still need a device |
-| Signed release | ██████████ 100% | ██░░░░░░░░░░ 20% | Signed release published (v0.4.0) — still not device-tested |
+| Device test + metrics | ███░░░░░░░░ 30% | ███░░░░░░░░ 30% | Android 15 emulator: launches, loops, captures. Idle PSS 68 MB. No physical device yet |
+| Signed release | ██████████ 100% | ███░░░░░░░░ 30% | Signed release published — still no live-model run |
 
 ## TODO
 
@@ -42,13 +43,14 @@ Proven  ████░░░░░░░░░░░░░░░░  25%  (comp
 - [x] Build the real arm64 `.so` in CI (was silently skipped before; APK now ships `lib/arm64-v8a/libagent_core.so`, 467 KB)
 - [x] Measure APK size: **7.9 MB** < 25 MB target (CI artifact)
 - [x] Testing APK: `git tag v0.4-testing && git push origin v0.4-testing` → pre-release APK under Releases
-- [ ] Install debug APK on Android 15, grant Accessibility + capture + mic
-- [ ] Run 3 real tasks end-to-end, fix runtime issues
-- [ ] Measure idle PSS < 180 MB (needs a device)
+- [x] Install on Android 15, grant Accessibility + screen capture
+      (Android 15 emulator, API 35: accessibility service binds, agent loop runs,
+      screenshot capture returns a 44 KB JPEG)
+- [ ] Run 3 real tasks end-to-end, fix runtime issues (needs a live VLM key)
+- [x] Measure idle PSS: **68 MB** < 180 MB target (Android 15 emulator)
 - [ ] Gemini TTS speech-config flow (currently stub)
-- [x] Signed release APK + SHA-256 + GitHub Release — [v0.4.0](https://github.com/beingDurgesh/OnScreen-Agent/releases/tag/v0.4.0)
-      (`OnScreen-Agent-v0.4.0.apk`, 2.75 MB, versionCode 3 / versionName 0.4.0, arm64-v8a,
-      release-signed, SHA-256 published alongside it)
+- [x] Signed release APK + SHA-256 + GitHub Release — [v0.4.1](https://github.com/beingDurgesh/OnScreen-Agent/releases/tag/v0.4.1)
+      (`OnScreen-Agent-v0.4.1.apk`, release-signed, arm64-v8a, SHA-256 published alongside it)
 
 ### Later (on-device track)
 - [x] Model download manager (verified HF URLs, progress/cancel/delete, HF token for Gemma)
