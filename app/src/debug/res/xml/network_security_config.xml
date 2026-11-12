@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only.
+
+  Android blocks cleartext HTTP by default (targetSdk 28+). The release build
+  keeps that strict, but a debug build may point the agent at a local or
+  self-hosted OpenAI-compatible server (vLLM, Ollama, LM Studio, a mock
+  provider), which is typically plain HTTP on a private address.
+
+  This file is only used by `src/debug`; the release build has no
+  network-security-config at all and therefore keeps the platform default of
+  HTTPS-only.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

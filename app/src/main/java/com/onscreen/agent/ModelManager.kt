@@ -14,7 +14,16 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /** One remote file inside a downloadable model pack. */
-data class ModelFile(val url: String, val name: String, val bytes: Long)
+data class ModelFile(
+    val url: String,
+    val name: String,
+    /** Approximate size, used for progress and the free-space check. */
+    val bytes: Long,
+    /** Exact size in bytes as published upstream. */
+    val sizeBytes: Long,
+    /** SHA-256 of the upstream file, lowercase hex. */
+    val sha256: String,
+)
 
 /**
  * Downloadable on-device pack. URLs below were verified against
@@ -49,32 +58,39 @@ object ModelCatalog {
     val entries = listOf(
         ModelEntry(
             "whisper-tiny-en", "STT", "Whisper tiny.en (q5_1)", "32 MB",
-            listOf(ModelFile("$WH/ggml-tiny.en-q5_1.bin", "ggml-tiny.en-q5_1.bin", 32_200_000L)),
+            listOf(ModelFile("$WH/ggml-tiny.en-q5_1.bin", "ggml-tiny.en-q5_1.bin", 32_200_000L,
+                32_166_155L, "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b")),
             note = "Fastest on-device STT. English-only.",
         ),
         ModelEntry(
             "whisper-base-en", "STT", "Whisper base.en (q5_1)", "60 MB",
-            listOf(ModelFile("$WH/ggml-base.en-q5_1.bin", "ggml-base.en-q5_1.bin", 59_700_000L)),
+            listOf(ModelFile("$WH/ggml-base.en-q5_1.bin", "ggml-base.en-q5_1.bin", 59_700_000L,
+                59_721_011L, "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f")),
             note = "Better accuracy, roughly 2x slower than tiny.",
         ),
         ModelEntry(
             "gemma-e2b-q8", "VLM", "Gemma 3n E2B (Q8_0)", "4.8 GB",
-            listOf(ModelFile("$E2B/gemma-3n-E2B-it-Q8_0.gguf", "gemma-3n-E2B-it-Q8_0.gguf", 4_790_000_000L)),
+            listOf(ModelFile("$E2B/gemma-3n-E2B-it-Q8_0.gguf", "gemma-3n-E2B-it-Q8_0.gguf", 4_790_000_000L,
+                4_788_112_064L, "038a47c482e7af3009c462b56a7592e1ade3c7862540717aa1d9dee1760c337b")),
             needsHfToken = true,
             note = "Gated: approve the model on Hugging Face and set a token below. Heavy — needs 6GB+ free RAM.",
         ),
         ModelEntry(
             "gemma-e4b-q8", "VLM", "Gemma 3n E4B (Q8_0)", "7.4 GB",
-            listOf(ModelFile("$E4B/gemma-3n-E4B-it-Q8_0.gguf", "gemma-3n-E4B-it-Q8_0.gguf", 7_350_000_000L)),
+            listOf(ModelFile("$E4B/gemma-3n-E4B-it-Q8_0.gguf", "gemma-3n-E4B-it-Q8_0.gguf", 7_350_000_000L,
+                7_353_292_256L, "9f74079242c765116bd1f33123aa07160b5e93578c2d0032594b7ed97576f9c3")),
             needsHfToken = true,
             note = "Gated: approve the model on Hugging Face and set a token below. Flagship quality, 8GB+ RAM.",
         ),
         ModelEntry(
             "kitten-nano", "TTS", "KittenTTS nano pack", "24 MB",
             listOf(
-                ModelFile("$KIT/kitten_tts_nano_v0_1.onnx", "kitten_tts_nano_v0_1.onnx", 23_800_000L),
-                ModelFile("$KIT/config.json", "kitten_config.json", 1_000L),
-                ModelFile("$KIT/voices.npz", "kitten_voices.npz", 11_000L),
+                ModelFile("$KIT/kitten_tts_nano_v0_1.onnx", "kitten_tts_nano_v0_1.onnx", 23_800_000L,
+                    23_847_845L, "8818e8f06eb34bc9d17ba3987a9b513c5759e2f5f119b1242cfbb503d12bdc0a"),
+                ModelFile("$KIT/config.json", "kitten_config.json", 1_000L,
+                    177L, "987312b7ca0b25dca88229a2002c891220d6cd5dcb8350107820c65dc4a62bb4"),
+                ModelFile("$KIT/voices.npz", "kitten_voices.npz", 11_000L,
+                    10_294L, "d1f3b3ce46c5fa79fa0019824bf572fea74f6a84c88b079cfecd700118d00b62"),
             ),
             note = "15 voices at 24kHz. Smallest download on this screen.",
         ),
@@ -108,8 +124,17 @@ object ModelManager {
     fun modelsDir(ctx: Context): File = File(ctx.filesDir, "models").apply { mkdirs() }
     fun dirFor(ctx: Context, id: String): File = File(modelsDir(ctx), id).apply { mkdirs() }
 
+    /**
+     * A pack is ready when every file is present at its expected size.
+     * The size check is cheap (a stat, not a hash) so it is safe to call on
+     * every UI recomposition; the full SHA-256 check runs once, at download
+     * time, in [verify].
+     */
     fun isReady(ctx: Context, e: ModelEntry): Boolean =
-        e.files.all { File(dirFor(ctx, e.id), it.name).exists() }
+        e.files.all { f ->
+            val p = File(dirFor(ctx, e.id), f.name)
+            p.exists() && p.length() == f.sizeBytes
+        }
 
     fun downloadedBytes(ctx: Context, e: ModelEntry): Long {
         val dir = dirFor(ctx, e.id)
@@ -128,6 +153,36 @@ object ModelManager {
                 set(e.id, if (isReady(ctx, e)) ModelState.Ready else ModelState.Missing)
             }
         }
+    }
+
+    /**
+     * Check a freshly downloaded file against the upstream manifest.
+     * Returns null when the file is good, otherwise a short reason.
+     */
+    fun verify(file: File, expect: ModelFile): String? {
+        if (!file.exists()) return "file missing"
+        if (file.length() != expect.sizeBytes) {
+            return "size ${file.length()} B, expected ${expect.sizeBytes} B"
+        }
+        val actual = sha256(file)
+        if (!actual.equals(expect.sha256, ignoreCase = true)) {
+            return "sha256 ${actual.take(12)}…, expected ${expect.sha256.take(12)}…"
+        }
+        return null
+    }
+
+    /** SHA-256 of a file, lowercase hex. */
+    fun sha256(file: File): String {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { inp ->
+            val buf = ByteArray(256 * 1024)
+            while (true) {
+                val n = inp.read(buf)
+                if (n < 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
     }
 
     /** Canonical file handle for future inference code: pathFor(ctx, "kitten-nano", "kitten_tts_nano_v0_1.onnx"). */
@@ -185,6 +240,15 @@ object ModelManager {
                         resp.close()
                     }
                     synchronized(active) { active.remove(id) }
+                    // Verify the download before it becomes a "ready" model: a
+                    // truncated or substituted file must never be treated as a
+                    // usable pack.
+                    val problem = verify(tmp, f)
+                    if (problem != null) {
+                        tmp.delete()
+                        set(id, ModelState.Error("Download failed integrity check — $problem"))
+                        return@launch
+                    }
                     if (!tmp.renameTo(dest)) {
                         set(id, ModelState.Error("Could not finalise file (storage?)."))
                         return@launch

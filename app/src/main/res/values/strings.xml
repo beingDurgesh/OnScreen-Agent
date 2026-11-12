@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">On Screen</string>
+    <string name="accessibility_service_description">OnScreen Agent reads the screen layout so it can carry out the task you set. It only acts while the agent is running, and you can stop it at any time from the notification.</string>
+</resources>

@@ -19,9 +19,16 @@ jobs:
         with: { targets: aarch64-linux-android }
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
+      - name: Rust format + lint
+        working-directory: rust/agent-core
+        run: |
+          cargo fmt --check
+          cargo clippy --release --all-targets -- -D warnings
       - name: Rust tests (RAM-budget logic)
         working-directory: rust/agent-core
         run: cargo test --release
+      - name: Host-side static checks
+        run: python tools/check.py
       - name: Build JNI lib (arm64)
         working-directory: rust/agent-core
         run: |
@@ -39,6 +46,12 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleDebug --stacktrace
+      - name: APK size budget
+        run: |
+          SIZE=$(stat -c%s app/build/outputs/apk/debug/*.apk)
+          LIMIT=$((25 * 1024 * 1024))
+          echo "APK size: $SIZE bytes (limit $LIMIT)"
+          test "$SIZE" -lt "$LIMIT" || { echo "APK exceeds the 25 MB budget"; exit 1; }
       - name: SHA + artifact
         run: sha256sum app/build/outputs/apk/debug/*.apk | tee SHA256.txt
       - uses: actions/upload-artifact@v4

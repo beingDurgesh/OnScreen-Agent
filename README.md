@@ -228,8 +228,11 @@ your download.
 5. Paste your API key, pick a model in each of the three slots, and press
    **Play**.
 
-On Android 15 the system shows an extra "share or record an app" picker after
-the capture consent — select an app to mirror it into the agent.
+On Android 15 the capture consent has a **mode** dropdown that defaults to
+*"A single app"*. Change it to **"Entire screen"** — the agent has to see
+whatever app it is driving, and an app-scoped projection only mirrors one
+app's window. Android also revokes an app-scoped projection of the agent's
+own window, which leaves the agent unable to capture anything.
 
 ## Build from source
 
