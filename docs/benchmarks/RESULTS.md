@@ -125,9 +125,24 @@ Two findings came out of chasing this:
    grant. The mode must be **"Entire screen"**. This is now documented in the
    install instructions.
 2. The baseline code *did* produce a 43 936-byte JPEG in an earlier run,
-   before the `VirtualDisplay` was made persistent — so the persistent
-   display is not obviously the cause, and the emulator's SwiftShader
-   compositor is a plausible culprit.
+   before the `VirtualDisplay` was made persistent - so the persistent
+   display is not obviously the cause.
+
+The emulator's own log points at the compositor. Under SwiftShader it
+reports a steady stream of surface errors for the 1080x2400 display:
+
+```
+ERROR | bad color buffer handle 159
+ERROR | Failed to find ColorBuffer: 274
+ERROR | Failed to bind to texture: invalid color buffer.
+```
+
+Those are the graphics stack failing to hand the display's colour buffers to
+the compositor. A `MediaProjection` surface goes through exactly that path,
+which explains why the app's `ImageReader` never receives a frame while the
+rest of the UI renders. It is consistent with an emulator/SwiftShader
+limitation rather than an API misuse in the app - but it is not proof, and
+the app-side code is not cleared until it has been seen working on hardware.
 
 Still **not resolved**. It needs either a physical Android 15 device or a
 successful "Entire screen" run on the emulator to narrow down further. The
