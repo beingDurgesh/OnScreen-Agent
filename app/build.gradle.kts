@@ -19,8 +19,8 @@ android {
         applicationId = "com.onscreen.agent"
         minSdk = 35 // Android 15 per request. Target+min = 15+. See README for minSdk 29 trade-off.
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4.1"
+        versionCode = 5
+        versionName = "0.4.2"
         ndk { abiFilters += listOf("arm64-v8a") } // cloud drop: 64-bit only, keeps APK <25MB
         resourceConfigurations += listOf("en")
     }
