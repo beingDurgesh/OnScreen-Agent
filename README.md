@@ -208,7 +208,7 @@ The latest signed release APK:
 Direct link for the current version (2.8 MB, ARM64, Android 15+):
 
 ```
-https://github.com/beingDurgesh/OnScreen-Agent/releases/latest/download/OnScreen-Agent-v0.4.1.apk
+https://github.com/beingDurgesh/OnScreen-Agent/releases/latest/download/OnScreen-Agent-v0.4.2.apk
 ```
 
 A `SHA256.txt` is published next to every APK — check it if you want to verify
@@ -411,7 +411,7 @@ pre-release instead of the "Latest" release. The release asset is named
 version is:
 
 ```
-https://github.com/beingDurgesh/OnScreen-Agent/releases/latest/download/OnScreen-Agent-v0.4.1.apk
+https://github.com/beingDurgesh/OnScreen-Agent/releases/latest/download/OnScreen-Agent-v0.4.2.apk
 ```
 
 ### RAM / size profile

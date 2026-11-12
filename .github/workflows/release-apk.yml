@@ -60,9 +60,11 @@ jobs:
         run: |
           VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
           CODE=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' app/build.gradle.kts)
-          echo "build.gradle.kts declares $VERSION ($CODE); tag is $GITHUB_REF_NAME"
-          test "$VERSION" = "$GITHUB_REF_NAME" || {
-            echo "versionName '$VERSION' does not match tag '$GITHUB_REF_NAME' - bump app/build.gradle.kts"
+          # Tags are "v<version>"; versionName carries no prefix.
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "build.gradle.kts declares $VERSION ($CODE); tag is $TAG"
+          test "$VERSION" = "$TAG" || {
+            echo "versionName '$VERSION' does not match tag '$TAG' - bump app/build.gradle.kts"
             exit 1
           }
       - name: Rename + hash

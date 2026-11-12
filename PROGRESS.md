@@ -61,8 +61,8 @@ Proven  ███████░░░░░░░░░░░░░  35%  (runs
       a 2 000-node tree, byte-identical output
 - [x] Rust unit tests: **2 -> 15**
 - [ ] Gemini TTS speech-config flow (currently stub)
-- [x] Signed release APK + SHA-256 + GitHub Release — [v0.4.1](https://github.com/beingDurgesh/OnScreen-Agent/releases/tag/v0.4.1)
-      (`OnScreen-Agent-v0.4.1.apk`, release-signed, arm64-v8a, SHA-256 published alongside it)
+- [x] Signed release APK + SHA-256 + GitHub Release — [v0.4.2](https://github.com/beingDurgesh/OnScreen-Agent/releases/tag/v0.4.2)
+      (`OnScreen-Agent-v0.4.2.apk`, release-signed, arm64-v8a, SHA-256 published alongside it) The release workflow now fails if the tag and versionName disagree.
 
 ### Later (on-device track)
 - [x] Model download manager (verified HF URLs, progress/cancel/delete, HF token for Gemma)
