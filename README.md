@@ -1,10 +1,10 @@
 # OnScreen-Agent — Open-Source AI Agent for Android Screen Automation
 
-**Automate your Android phone with natural language.** OnScreen-Agent is an
-open-source Android AI agent that looks at your screen, decides what to do next
-with a multimodal AI model, and taps, types and scrolls through Android apps
-using the AccessibilityService API. Bring your own API key — no backend, no
-account, no server.
+**Automate your Android phone with plain English.** OnScreen-Agent is an
+open-source **Android AI agent**. It looks at your screen, asks a multimodal AI
+model what to do next, and then taps, types and scrolls inside your apps. It
+uses the Android AccessibilityService API. Bring your own API key - no backend,
+no account, no server.
 
 <p align="center">
   <a href="#download"><img alt="Download OnScreen-Agent APK for Android" src="https://img.shields.io/badge/download-APK-8B5CF6?style=for-the-badge&logo=android"></a>
@@ -18,190 +18,267 @@ account, no server.
   <a href="#what-is-onscreen-agent">What it is</a> •
   <a href="#features">Features</a> •
   <a href="#how-does-it-work">How it works</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#performance">Performance</a> •
   <a href="#download">Download</a> •
   <a href="#build-from-source">Build from source</a> •
   <a href="#faq">FAQ</a>
 </p>
 
+## Screenshots
+
+<img src="docs/screenshots/01-settings.png" width="380" alt="OnScreen-Agent settings screen showing the three bring-your-own-key slots: speech-to-text, vision-language agent brain, and text-to-speech, each with a provider picker, a model name and an API key field">
+
+**The three BYOK slots.** Pick a provider and a model for each, then paste your
+own key.
+
+<img src="docs/screenshots/02-goal-and-controls.png" width="640" alt="OnScreen-Agent goal field reading Turn on Dark theme in Settings, with Mic, Play and Stop buttons below the on-device model download list">
+
+**Type your goal, then press Play.** Mic records it for you. Stop always wins.
+
 ---
 
 ## What is OnScreen-Agent?
 
-OnScreen-Agent is an experimental, open-source **Android AI agent** for
-**screen automation** and **app automation** driven by natural-language
-instructions. You type a goal — *"turn on Dark theme in Settings"* — and the
-agent captures the screen, reads the accessibility hierarchy, asks a
-vision-language model what to do, and performs the action through Android's
-accessibility APIs. It then re-observes the screen and repeats until the task
-is done or it needs you.
+OnScreen-Agent is an open-source **Android AI agent** for **screen automation**
+and **app automation**. You give it a goal in plain English, for example
+*"turn on Dark theme in Settings"*. The agent then:
 
-Unlike rule-based Android automation (Appium, UIAutomator, Espresso scripts),
-OnScreen-Agent does not follow a fixed script. It **understands whatever is on
-screen right now** and picks the next action, which means it can work against
-apps it has never seen.
+1. takes a picture of your screen,
+2. reads the list of buttons and text on it,
+3. asks an AI model what to do next,
+4. performs that action on your phone,
+5. and repeats until the job is done.
 
-It is built as a lightweight Kotlin app with a Rust agent core, and it is
-**bring your own key (BYOK)**: you paste your own OpenAI, Google Gemini or
-OpenRouter API key into the app, and your key never leaves your phone. There is
-no developer-hosted inference backend.
+This is different from normal Android automation. Tools like Appium,
+UIAutomator or Espresso follow a fixed script that you write for one screen.
+OnScreen-Agent looks at whatever is on screen **right now** and picks the next
+step. That means it can work on apps it has never seen before.
 
-> **Project status:** experimental. The build pipeline is proven and the agent
-> loop runs on an Android 15 emulator, but the loop has **not** yet driven a
-> live cloud model end to end. Read [Project status](#project-status) before
-> you trust it with anything important.
+The app itself is small and written in Kotlin. The thinking parts — checking
+actions, trimming the screen data, building the prompt — are written in Rust
+and called over JNI.
+
+It uses a **bring your own key (BYOK)** model. You paste your own OpenAI,
+Google Gemini or OpenRouter API key into the app. Your key stays on your
+phone, and there is no server in the middle.
+
+> **Project status:** experimental. The app builds, the agent loop runs on an
+> Android 15 emulator, and the screen capture works. But the loop has **not**
+> yet run a full job against a live cloud model. Read
+> [Project status](#project-status) before you trust it with anything
+> important.
 
 ## Features
 
-- **AI-powered Android automation** — turn natural-language instructions into
-  real UI taps, text entry, scrolling and navigation.
-- **Screen understanding** — combines a downscaled screenshot with the
-  accessibility node hierarchy so the model sees both pixels and structure.
-- **Multimodal AI integration** — works with OpenAI (`gpt-4o-mini`, `gpt-4o`,
-  `gpt-4.1`), Google Gemini (`gemini-2.5-flash`, `gemini-2.5-pro`) and any
-  OpenRouter model.
-- **Bring Your Own Key (BYOK)** — configure your own credentials; requests go
-  straight from your phone to the provider. Keys are encrypted at rest.
-- **Voice interaction** — speak your goal via speech-to-text, hear spoken status
-  back via text-to-speech.
-- **Rust agent core** — strict action-schema parsing, accessibility-tree and
-  RAM budgeting, and prompt building in Rust, called from Kotlin over JNI.
-- **RAM-conscious by design** — 8 KB accessibility-tree cap, 120-node cap,
-  6-step history, one frame per step, 960 px screenshots. Idle PSS measures
-  **68 MB**; the release APK is **2.8 MB**.
-- **On-device AI roadmap** — download and run Whisper, Gemma 3n and KittenTTS
-  locally so the app can work without the cloud.
+- **AI-powered Android automation** — turn plain-English instructions into real
+  taps, typing, scrolling and navigation.
+- **Screen understanding** — sends the model both a screenshot and the list of
+  on-screen elements, so it can see pixels *and* structure.
+- **Works with many AI models** — OpenAI (`gpt-4o-mini`, `gpt-4o`, `gpt-4.1`),
+  Google Gemini (`gemini-2.5-flash`, `gemini-2.5-pro`) and any OpenRouter model.
+- **Bring Your Own Key (BYOK)** — your credentials stay on your phone and your
+  requests go straight to the provider. Keys are encrypted on disk.
+- **Voice control** — say your goal out loud, and hear spoken status back.
+- **Rust agent core** — action checking, screen-data trimming and prompt
+  building all run in Rust, called from Kotlin over JNI.
+- **Small and fast** — the release APK is **2.8 MB**, idle memory is **68 MB**,
+  and the screen data is trimmed in Rust **4× faster** than before. See
+  [Performance](#performance).
+- **On-device AI is on the way** — download Whisper, Gemma 3n and KittenTTS to
+  run models locally.
 
 ## How does it work?
 
-The agent runs a perception-to-action loop:
+The agent runs a simple **see → think → act** loop:
 
-1. **Instruction** — you give a goal in text or by voice.
-2. **Perceive** — `AgentService` captures the screen with `MediaProjection`
-   (JPEG, long edge 960 px, quality 60) and dumps the accessibility tree with
-   stable node ids via `AccessibilityService`.
-3. **Reason** — the screenshot and the trimmed tree go to your configured
-   vision-language model with a strict action schema.
-4. **Validate** — Rust `parseAction` rejects anything that does not match the
-   schema (unknown action types, oversized input text, malformed package
-   names), so a confused model cannot inject arbitrary actions.
-5. **Act** — the validated action executes against **the same dump the model
-   saw**, so node ids stay valid between perception and action.
-6. **Repeat** — the screen is re-observed and the loop continues, up to a hard
-   cap of 40 steps. `done`, `needHelp` or the step limit stops the agent, and
-   **Stop always wins** — you can halt it at any time.
+1. **You give a goal.** Type it, or say it out loud.
+2. **It looks.** `AgentService` takes a screenshot with `MediaProjection`
+   (JPEG, 960 px on the long side, quality 60) and reads the screen elements
+   with `AccessibilityService`. Every element gets a stable id.
+3. **It thinks.** The screenshot and the trimmed screen data go to your
+   configured vision-language model, along with a strict list of allowed
+   actions.
+4. **Rust checks the answer.** `parseAction` rejects anything that does not
+   fit the schema — unknown actions, too-long text, broken package names. A
+   confused model cannot sneak in its own actions.
+5. **It acts.** The action runs against **the same screen dump the model saw**,
+   so the ids still point at the right elements.
+6. **It looks again.** Then it repeats, up to **40 steps**. It stops on
+   `done`, on `needHelp`, or when it hits the step limit. **Stop always
+   wins** — you can halt it at any moment.
 
 Supported actions: `click`, `longClick`, `input` (type text), `scroll`,
 `back`, `home`, `openApp`, `wait`, `done`, `needHelp`.
 
+## Performance
+
+The app is built to stay small and quiet, because it runs on your phone next
+to everything else you are doing.
+
+### Measured numbers
+
+| What | Measured | Target |
+|---|---|---|
+| Idle memory (PSS) | **68 MB** | under 180 MB |
+| Release APK size | **2.8 MB** | under 25 MB |
+| Debug APK size | 7.6 MB | — |
+| Screen data kept | 120 elements / 8 KB | hard cap |
+| Steps per run | 40 | hard cap |
+| Screenshot | 960 px, JPEG quality 60 | one frame per step |
+
+### The screen-data trim got 4× faster
+
+The agent sends the model a small summary of the screen instead of everything
+on it. Rust does that trimming. It used to read **every** element on the
+screen into memory and then throw most of them away. Now it reads only the
+first 120 elements and skips the rest without allocating.
+
+| Elements on screen | Before | After | Faster by |
+|---|---|---|---|
+| 120 | 107 µs | 60 µs | 1.8× |
+| 500 | 227 µs | 87 µs | 2.6× |
+| 2 000 | 805 µs | **194 µs** | **4.1×** |
+
+The result is byte-for-byte the same. You can check this yourself:
+
+```bash
+cd rust/agent-core
+cargo run --release --example bench
+```
+
+**How much does this matter?** Less than you might think. The AI model call
+takes seconds. The trimming takes microseconds. So the real win is **memory and
+worst-case delay**. A big screen no longer costs thousands of short-lived
+allocations, and the slowest case dropped from 1.9 ms to 0.2 ms.
+
+### Other choices that keep it light
+
+- Rust is compiled for size: `opt-level = "z"`, link-time optimisation, and
+  symbols stripped.
+- The screen list is capped at 120 elements and 8 KB.
+- Only the last 6 actions are remembered, so the model never gets a long
+  history.
+- One screenshot per step, and every bitmap is released straight away.
+- `largeHeap=false`, so the app asks Android for the normal heap size.
+- ARM64 only, and the release build is shrunk and minified.
+
 ## Tech stack
 
-| Technology | Purpose |
+| Technology | What it is used for |
 |---|---|
-| Kotlin | Android application and framework APIs |
-| Rust | Agent core: action parsing, AX-tree/RAM budgeting, prompt building |
-| JNI | Kotlin ↔ Rust bridge (`rust/agent-core`) |
-| Jetpack Compose | Android UI |
-| AccessibilityService | Screen interaction and node extraction |
-| MediaProjection | Screen capture |
-| Gradle + Cargo | Build system for the app and the native library |
+| Kotlin | The Android app and the system APIs |
+| Rust | The agent core: action checking, screen-data trimming, prompt building |
+| JNI | The bridge between Kotlin and Rust (`rust/agent-core`) |
+| Jetpack Compose | The app's UI |
+| AccessibilityService | Reading and tapping screen elements |
+| MediaProjection | Taking screenshots |
+| Gradle + Cargo | Building the app and the native library |
 | OpenAI API | Cloud AI, speech-to-text and text-to-speech |
-| Google Gemini API | Multimodal AI and speech integrations |
-| OpenRouter | Custom vision-language model routing |
-| Whisper.cpp | On-device speech-to-text (integration) |
-| Gemma 3n | On-device vision-language inference (roadmap) |
-| KittenTTS | On-device speech synthesis (integration) |
+| Google Gemini API | Multimodal AI and speech |
+| OpenRouter | Any custom vision-language model |
+| Whisper.cpp | On-device speech-to-text (in progress) |
+| Gemma 3n | On-device vision-language AI (planned) |
+| KittenTTS | On-device speech synthesis (in progress) |
 
-### Why Rust + Kotlin (not pure Rust)
+### Why Rust and Kotlin together?
 
-Android 15 automation requires `AccessibilityService`, `MediaProjection`,
-Jetpack Compose and runtime permissions — framework APIs that are only exposed
-to Kotlin/Java. So Rust cannot own the whole app. Rust owns the agent hot loop
-via JNI instead: strict action-schema parsing, accessibility-tree and RAM
-budgeting, and prompt building. The cloud APK is built with Rust `default`
-features, so **no model weights are bundled**.
+Android automation needs `AccessibilityService`, `MediaProjection`, Jetpack
+Compose and runtime permissions. Those are Android framework APIs, and only
+Kotlin and Java can use them. So Rust cannot do the whole app.
+
+Rust takes the parts that run on every single step: checking actions,
+trimming screen data and building the prompt. The cloud build ships no model
+weights at all.
 
 ## Cloud AI and bring your own key
 
-OnScreen-Agent has **no developer-hosted backend**. The app talks directly to
-your chosen AI provider from the phone, and you are billed by that provider.
+There is **no backend run by the developer**. The app calls your AI provider
+straight from your phone, and that provider bills you.
 
-You configure three slots — pick a provider and a model in each:
+Pick a provider and a model for each of the three slots:
 
-| # | Module | Providers / models |
-|---|--------|--------------------|
-| 1 | Speech-to-text | whisper.cpp on-device (flagged, not bundled) · OpenAI `whisper-1` · Gemini `gemini-2.0-flash` |
-| 2 | VLM brain | OpenAI `gpt-4o-mini` / `gpt-4o` / `gpt-4.1` · Gemini `gemini-2.5-flash` / `gemini-2.5-pro` · OpenRouter custom string |
-| 3 | Text-to-speech | KittenTTS on-device (flagged, not bundled) · OpenAI `tts-1` · Gemini TTS (stub, speech-config flow TODO) |
+| # | Slot | Providers and models |
+|---|------|---------------------|
+| 1 | Speech-to-text | whisper.cpp on-device (planned, not bundled) · OpenAI `whisper-1` · Gemini `gemini-2.0-flash` |
+| 2 | AI brain (vision-language) | OpenAI `gpt-4o-mini` / `gpt-4o` / `gpt-4.1` · Gemini `gemini-2.5-flash` / `gemini-2.5-pro` · OpenRouter (any model) |
+| 3 | Text-to-speech | KittenTTS on-device (planned, not bundled) · OpenAI `tts-1` · Gemini TTS (not finished yet) |
 
-There is an optional fourth field for a Brave Search key (passthrough).
+There is also an optional fourth field for a Brave Search key.
 
-### On-device models (roadmap)
+You can point the AI brain at any OpenAI-compatible server, such as vLLM,
+Ollama or LM Studio. Leave the **Custom base URL** box empty to use
+`api.openai.com`.
+
+### On-device models (planned)
 
 The app can already **download** on-device model packs into
-`filesDir/models/<id>/` with progress, cancel and delete. Local inference is
-the next build:
+`filesDir/models/<id>/`. You get a progress bar, cancel and delete. Running
+them locally is the next step:
 
-- Whisper `tiny.en-q5_1` (32 MB) / `base.en-q5_1` (60 MB)
-- Gemma 3n E2B-Q8_0 (4.8 GB) / E4B-Q8_0 (7.4 GB) — both gated: approve the
-  model on Hugging Face and save a token
+- Whisper `tiny.en-q5_1` (32 MB) and `base.en-q5_1` (60 MB)
+- Gemma 3n E2B-Q8_0 (4.8 GB) and E4B-Q8_0 (7.4 GB) — both are gated, so
+  approve the model on Hugging Face and save a token
 - KittenTTS nano pack (24 MB)
 
-Official `ggml-org` Q4 builds do not exist for Gemma 3n, so Q8_0 is offered
-with a RAM warning. Until inference ships, these are `cfg-gated` placeholders
-(`transcribe_ondevice` and friends return errors).
+Google does not publish Q4 builds for Gemma 3n, so the app offers Q8_0 with a
+warning about RAM. Until local inference ships, these downloads are placeholders
+and the functions return an error.
 
 ## Android compatibility
 
-- **Minimum Android version:** Android 15 (API 35)
+- **Minimum version:** Android 15 (API 35)
 - **Architecture:** ARM64 (`arm64-v8a`)
-- **Development toolchain:** Android SDK 36, NDK 27, JDK 17, Rust, cargo-ndk
-- **Build system:** Gradle (app) + Cargo (native agent core)
+- **To build it:** Android SDK 36, NDK 27, JDK 17, Rust, cargo-ndk
+- **Build tools:** Gradle (app) and Cargo (native library)
 
 ## Project status
 
-OnScreen-Agent is actively evolving. Here is what is actually proven.
+This project is still being built. Here is what has actually been tested.
 
-**Implemented and tested:**
+**Working and tested:**
 
-- Android application build pipeline (CI is green; signed release APK published)
-- Accessibility hierarchy extraction on an Android 15 emulator
-- Screenshot capture (a real 43,936-byte JPEG frame from a live MediaProjection)
-- Rust accessibility-tree processing (verified on-device: the trimmed tree
-  comes back in Rust's `id|class|text` format)
-- Strict structured action parsing, covered by unit tests
-- Provider configuration architecture (BYOK)
+- The build pipeline works. CI is green and a signed release APK is published.
+- The app installs, starts and runs on an Android 15 emulator.
+- Reading screen elements works (43 elements read from a live screen).
+- Taking a screenshot works (a real 43,936-byte JPEG from a live
+  MediaProjection).
+- Rust processes the screen data (confirmed on-device: the trimmed data comes
+  back in Rust's own format).
+- Action checking is covered by unit tests (15 Rust tests).
+- The Rust code is 4× faster at trimming screen data, with identical output.
+- Model downloads are checked against a SHA-256 before they are accepted.
 
-**Still to do or needing further validation:**
+**Not done or not fully tested yet:**
 
-- End-to-end live cloud AI automation on a physical Android device
-- Reliability testing across different Android applications
-- On-device inference for the downloaded Whisper, Gemma 3n and KittenTTS packs
-- Task verification and error recovery improvements
+- A full job driven by a live cloud model on a real phone.
+- How reliable it is across many different apps.
+- Running the downloaded Whisper, Gemma 3n and KittenTTS models locally.
+- Checking that a task really finished, and recovering when it did not.
 
-This is an experimental project, not a production-ready autonomous assistant.
+This is an experimental project, not a finished autonomous assistant.
 
 ## Safety and privacy
 
 OnScreen-Agent uses `AccessibilityService` and `MediaProjection` to read and
-control the screen. Please consider:
+control your screen. Please keep these in mind:
 
-- **Screen content may be sent to your AI provider.** A screenshot of your
-  screen goes to whichever model you configured.
-- **Your API usage is billed to you**, by the provider whose key you entered.
-- **API credentials are stored encrypted on the device** using
+- **Your screen may be sent to your AI provider.** A screenshot goes to
+  whichever model you set up.
+- **You pay for the API calls**, through the provider whose key you entered.
+- **Your API keys are encrypted on the device**, using
   `EncryptedSharedPreferences`.
-- **Android security restrictions may block automation** in certain apps.
-  Banking and wallet apps often refuse to run while an accessibility service
-  is enabled.
-- **Play Protect will flag this app.** It is not distributed through Google
-  Play, and the accessibility + screen-control permissions look alarming to
-  antivirus scanners. That warning is expected.
-- **Use a test device or a secondary user profile** while evaluating the
-  project. The agent step cap is 40 per run, but it can still tap things.
+- **Some apps block automation.** Banking and wallet apps often refuse to run
+  while an accessibility service is switched on.
+- **Play Protect will warn you.** The app is not on Google Play, and the
+  accessibility and screen-control permissions look alarming to scanners. That
+  warning is expected.
+- **Try it on a spare phone or a second user profile first.** The agent stops
+  after 40 steps, but it can still tap things.
 
 ## Download
 
-The latest signed release APK:
+The latest signed release:
 
 **→ [beingDurgesh/OnScreen-Agent releases](https://github.com/beingDurgesh/OnScreen-Agent/releases/latest)**
 
@@ -211,41 +288,39 @@ Direct link for the current version (2.8 MB, ARM64, Android 15+):
 https://github.com/beingDurgesh/OnScreen-Agent/releases/latest/download/OnScreen-Agent-v0.4.2.apk
 ```
 
-A `SHA256.txt` is published next to every APK — check it if you want to verify
-your download.
+A `SHA256.txt` file sits next to every APK. Use it if you want to check your
+download.
 
-**Installing**
+**How to install**
 
 1. Download the APK.
-2. On your phone: Settings → Apps → Special app access → **Install unknown
-   apps** → allow the browser or file manager you used.
+2. On your phone open Settings → Apps → Special app access → **Install unknown
+   apps**, and allow the browser or file manager you used.
 3. Install the APK and open **On Screen (Rust Cloud)**.
-4. Grant the permissions it asks for:
-   - **Accessibility** (Settings → Accessibility → On Screen) — required to tap
-     things.
-   - **Screen capture** — required to see the screen.
+4. Give the permissions it asks for:
+   - **Accessibility** (Settings → Accessibility → On Screen) — needed to tap things.
+   - **Screen capture** — needed to see the screen.
    - **Microphone** — only if you use voice goals.
 5. Paste your API key, pick a model in each of the three slots, and press
    **Play**.
 
-On Android 15 the capture consent has a **mode** dropdown that defaults to
-*"A single app"*. Change it to **"Entire screen"** — the agent has to see
-whatever app it is driving, and an app-scoped projection only mirrors one
-app's window. Android also revokes an app-scoped projection of the agent's
-own window, which leaves the agent unable to capture anything.
+On Android 15 the capture permission screen has a **mode** dropdown. It starts
+on *"A single app"*. Change it to **"Entire screen"**. The agent has to see
+whatever app it is driving, and a single-app capture only shows one window.
+Android also cancels a single-app capture of the agent's own window, which
+leaves the agent unable to see anything.
 
 ## Build from source
 
-**Requirements:** Android SDK 36 · Android NDK 27 · JDK 17 · Rust toolchain ·
-cargo-ndk
+**You need:** Android SDK 36 · Android NDK 27 · JDK 17 · Rust · cargo-ndk
 
 ```bash
 git clone https://github.com/beingDurgesh/OnScreen-Agent.git
 cd OnScreen-Agent
 ```
 
-Build the Rust native library first — it is **not** committed to the repo, and
-without it the app silently falls back to a Kotlin implementation:
+Build the Rust library first. It is **not** in the repository, and without it
+the app quietly falls back to a slower Kotlin version:
 
 ```bash
 cd rust/agent-core
@@ -257,93 +332,98 @@ cp "$(find target -name libagent_core.so -path '*aarch64*' | head -1)" \
 cd ../..
 ```
 
-Then assemble the APK:
+Then build the APK:
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-> **Note:** building inside a OneDrive-synced folder fails — the sync client
-> holds locks on Gradle's cache and the build dies with `Unable to delete
-> directory .../app/build/kotlin/...`. Clone to a local path and build there.
+> **Note:** do not build inside a OneDrive folder. OneDrive locks Gradle's
+> cache and the build dies with `Unable to delete directory
+> .../app/build/kotlin/...`. Clone to a normal local folder first.
 
-CI (`.github/workflows/build-apk.yml`) does the same thing: `cargo test` →
-cargo-ndk arm64 `.so` → `assembleDebug` → APK artifact + SHA-256.
+CI (`.github/workflows/build-apk.yml`) does the same steps: `cargo test` →
+cargo-ndk arm64 library → `assembleDebug` → APK plus SHA-256.
 
-### Verifying
+### Check your build
 
 ```bash
-cargo test --manifest-path rust/agent-core/Cargo.toml   # Rust agent-core unit tests
-python tools/check.py                                   # 55 static checks, no SDK needed
+cargo test --manifest-path rust/agent-core/Cargo.toml   # 15 Rust unit tests
+cargo run --release --manifest-path rust/agent-core/Cargo.toml --example bench
+python tools/check.py                                    # 55 static checks, no SDK needed
 ```
 
 ## FAQ
 
 ### What is an Android AI agent?
 
-Software that interprets plain-language instructions, understands the current
-Android interface, and performs actions through supported system APIs.
-OnScreen-Agent explores that approach using multimodal AI and
-accessibility-driven automation instead of fixed scripts.
+Software that reads plain-English instructions, understands what is on the
+Android screen, and acts on it using supported system APIs. OnScreen-Agent
+does this with multimodal AI instead of fixed scripts.
 
 ### Can OnScreen-Agent automate Android apps?
 
-It is designed to interact with Android apps through accessibility-based
-actions — clicking, typing, scrolling and navigating. Compatibility and
-reliability still need testing app by app, and the loop has not yet been driven
-by a live cloud model.
+It is built to click, type, scroll and navigate through apps using
+accessibility actions. How well it works still needs testing app by app, and
+the loop has not yet run a full job against a live cloud model.
 
-### Does OnScreen-Agent require an API key?
+### Does OnScreen-Agent need an API key?
 
-Yes, for the cloud configuration. It follows a bring-your-own-key model: you
-supply credentials from a supported provider (OpenAI, Gemini, OpenRouter) and
-pay your own usage costs. There is no hosted backend and no account to create.
+Yes, for the cloud setup. It uses bring-your-own-key: you add a key from
+OpenAI, Gemini or OpenRouter and you pay for your own usage. There is no
+hosted backend and no account to create.
 
-### Which AI providers and models are supported?
+### Which AI providers and models can I use?
 
-OpenAI (`gpt-4o-mini`, `gpt-4o`, `gpt-4.1`) for the vision-language brain,
-Google Gemini (`gemini-2.5-flash`, `gemini-2.5-pro`) for the same slot,
-OpenRouter for any custom model string, plus OpenAI `whisper-1` and Gemini for
-speech-to-text, and OpenAI `tts-1` for text-to-speech.
+OpenAI (`gpt-4o-mini`, `gpt-4o`, `gpt-4.1`) and Gemini
+(`gemini-2.5-flash`, `gemini-2.5-pro`) for the AI brain. OpenRouter for any
+other model. OpenAI `whisper-1` and Gemini for speech-to-text, and OpenAI
+`tts-1` for text-to-speech. You can also point it at any OpenAI-compatible
+server you run yourself.
 
 ### Does it work completely offline?
 
-Not yet. The current cloud configuration relies on external AI providers.
-On-device model downloads (Whisper, Gemma 3n, KittenTTS) are implemented, and
-local inference is in progress.
+Not yet. The cloud setup needs an online AI provider. Downloading on-device
+models (Whisper, Gemma 3n, KittenTTS) already works; running them locally is
+still being built.
 
 ### What Android versions are supported?
 
-Android 15 (API 35) and newer, ARM64 devices only.
+Android 15 (API 35) and newer, on ARM64 devices.
 
-### Is it safe to give an AI agent Accessibility access?
+### Is it safe to give an AI agent accessibility access?
 
-Treat it as you would any automation tool with screen control: use a test
-device or a secondary profile, keep an eye on the step count, and stop it when
-it misbehaves. The app never leaves your device except to call the AI provider
-you chose.
+Treat it like any automation tool that can control your screen. Try it on a
+test phone or a second profile, keep an eye on the step count, and stop it if
+it misbehaves. The app only talks to the AI provider you chose.
 
 ### Is OnScreen-Agent open source?
 
-Yes. The full source, build scripts and development documentation are in this
-public repository under the MIT license.
+Yes. The full source, build scripts and documentation are in this public
+repository under the MIT license.
 
 ### How do I build it from source?
 
-See [Build from source](#build-from-source) — you need the Android SDK 36,
-NDK 27, JDK 17, Rust and cargo-ndk, and you must build the Rust native library
-before assembling the APK.
+See [Build from source](#build-from-source). You need the Android SDK 36, NDK
+27, JDK 17, Rust and cargo-ndk, and you must build the Rust library before
+you build the APK.
+
+### Why is the app so small?
+
+Because it does not bundle any AI model. The whole point of the bring-your-own-key
+setup is that the heavy models run on your provider's servers, and the app on
+your phone stays at 2.8 MB.
 
 ## Contributing
 
-Contributions, bug reports, suggestions and technical discussions are welcome.
-Open an issue to discuss a change before opening a pull request, and please
-include what you tested on (emulator or device, Android version, ABI).
+Contributions, bug reports, suggestions and discussions are welcome. Please
+open an issue before a pull request, and say what you tested on (emulator or
+real device, Android version, CPU).
 
-If you are reporting a bug in the agent loop, the `AgentService` and
-`ScreenCapture` log lines are the most useful thing to paste — they record the
-accessibility node count, the trimmed tree size and the captured JPEG size for
-every step.
+If you are reporting a problem with the agent loop, the `AgentService` and
+`ScreenCapture` log lines are the most useful thing to paste. They record the
+number of screen elements, the size of the trimmed data and the size of the
+screenshot for every step.
 
 ## License
 
@@ -354,6 +434,11 @@ MIT — see [LICENSE](LICENSE).
 - **Source code:** https://github.com/beingDurgesh/OnScreen-Agent
 - **Issues:** https://github.com/beingDurgesh/OnScreen-Agent/issues
 - **Releases:** https://github.com/beingDurgesh/OnScreen-Agent/releases
+- **Performance numbers:** [docs/benchmarks/BASELINE.md](docs/benchmarks/BASELINE.md) ·
+  [docs/benchmarks/RESULTS.md](docs/benchmarks/RESULTS.md)
+- **Engineering audit:** [docs/ENGINEERING_AUDIT.md](docs/ENGINEERING_AUDIT.md)
+- **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Security audit:** [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)
 - **Project docs:** [SPEC.md](SPEC.md) · [PLAN.md](PLAN.md) ·
   [PROGRESS.md](PROGRESS.md)
 
@@ -363,7 +448,7 @@ of that v1 behaviour).
 
 ---
 
-**OnScreen-Agent — exploring AI-powered automation for Android.**
+**OnScreen-Agent — open-source AI screen automation for Android.**
 
 Built by [beingDurgesh](https://github.com/beingDurgesh).
 
@@ -396,31 +481,25 @@ in place; users would have to uninstall and reinstall.
 
 ### Releasing
 
-Push a `v*` tag. `release-apk.yml` builds the signed **release** variant
-(minified + resource-shrunk, ~2.8 MB), verifies it with `apksigner`, hashes
-it, and publishes it as a GitHub Release:
+Push a `v*` tag. `release-apk.yml` then:
+
+1. builds the signed **release** variant (minified + resource-shrunk, ~2.8 MB),
+2. checks that the version in `app/build.gradle.kts` matches the tag,
+3. verifies the signature with `apksigner`,
+4. hashes the file, and
+5. publishes it as a GitHub Release.
 
 ```bash
-git tag -a v0.4.1 -m "v0.4.1"
-git push origin v0.4.1
+git tag -a v0.4.2 -m "v0.4.2"
+git push origin v0.4.2
 ```
 
-A tag containing a hyphen (e.g. `v0.4.1-beta.1`) is published as a
-pre-release instead of the "Latest" release. The release asset is named
-`OnScreen-Agent-<tag>.apk`, so the stable download URL for the current
-version is:
+A tag with a hyphen in it (for example `v0.4.2-beta.1`) is published as a
+pre-release instead of the "Latest" release. The file is named
+`OnScreen-Agent-<tag>.apk`, so the download link for the current version is:
 
 ```
 https://github.com/beingDurgesh/OnScreen-Agent/releases/latest/download/OnScreen-Agent-v0.4.2.apk
 ```
-
-### RAM / size profile
-
-- Rust `opt-level=z, lto, strip`, `SmallVec`, 8 KB/120-node AX cap, 6-step
-  history, 500-char goal cap.
-- One frame per step; bitmaps and surfaces are closed in-function.
-  `largeHeap=false`, ARM64-only, `resConfigs en`, shrink + minify.
-- Targets: APK < 25 MB, idle PSS < 180 MB. Measured: APK 2.8 MB (release),
-  idle PSS 68 MB.
 
 </details>
