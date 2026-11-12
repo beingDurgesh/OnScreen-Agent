@@ -1,4 +1,4 @@
-# OnScreen-Agent — Progress (updated: v0.4.1)
+# OnScreen-Agent — Progress (updated: v0.4.2)
 
 Two bars because they differ: **Written** = code exists. **Proven** = compiled/ran.
 Everything below compiles, the CI build is green, and a **signed release APK is
@@ -9,7 +9,7 @@ success is still unproven.
 
 ```
 Written ██████████████░░░░░░  70%
-Proven  ██████░░░░░░░░░░░░░░░  30%  (runs on Android 15 + CI green + signed release; no live model run)
+Proven  ███████░░░░░░░░░░░░░  35%  (runs on Android 15 + CI green + signed release; no live model run)
 ```
 
 ## Tracks
@@ -46,8 +46,20 @@ Proven  ██████░░░░░░░░░░░░░░░  30%  (r
 - [x] Install on Android 15, grant Accessibility + screen capture
       (Android 15 emulator, API 35: accessibility service binds, agent loop runs,
       screenshot capture returns a 44 KB JPEG)
-- [ ] Run 3 real tasks end-to-end, fix runtime issues (needs a live VLM key)
+- [x] Fix the defects found by running it - see
+      [`docs/ENGINEERING_AUDIT.md`](docs/ENGINEERING_AUDIT.md) and
+      [`docs/benchmarks/RESULTS.md`](docs/benchmarks/RESULTS.md):
+      one-VirtualDisplay-per-projection, the `nextAction` recursion,
+      `MediaProjection.Callback`, `POST_NOTIFICATIONS`, `START_STICKY`,
+      provider cancellation, structured errors, download integrity, the Gemini
+      key out of the URL, and the Rust panic boundary
+- [ ] Run 3 real tasks end-to-end, fix runtime issues
+      (blocked: the Android 15 capture dialog defaults to "A single app",
+      which Android revokes for the agent's own window - use "Entire screen") (needs a live VLM key)
 - [x] Measure idle PSS: **68 MB** < 180 MB target (Android 15 emulator)
+- [x] Trim the AX tree without allocating the whole dump - **4.1x faster** on
+      a 2 000-node tree, byte-identical output
+- [x] Rust unit tests: **2 -> 15**
 - [ ] Gemini TTS speech-config flow (currently stub)
 - [x] Signed release APK + SHA-256 + GitHub Release — [v0.4.1](https://github.com/beingDurgesh/OnScreen-Agent/releases/tag/v0.4.1)
       (`OnScreen-Agent-v0.4.1.apk`, release-signed, arm64-v8a, SHA-256 published alongside it)

@@ -114,11 +114,24 @@ ScreenCapture: virtual display created 1080x2400
 ScreenCapture: no frame within 2000ms
 ```
 
-The baseline code *did* produce a 43 936-byte JPEG in an earlier run, before
-the `VirtualDisplay` was made persistent, so this is most likely an interaction
-between the app-scoped projection and the emulator's SwiftShader compositor
-rather than a plain API misuse. It is **not resolved** and needs either a
-physical Android 15 device or an "Entire screen" projection to narrow down.
+Two findings came out of chasing this:
 
-Until it is resolved, screen capture cannot be claimed as working end to end,
-even though the Rust half of the pipeline (AX dump → Rust trim) is verified.
+1. The Android 15 capture dialog has a **mode** dropdown that defaults to
+   *"A single app"*. For an automation agent that mode is wrong twice over:
+   the agent needs to see the app it is driving, and Android **revokes** an
+   app-scoped projection of the agent's own window — which is exactly what
+   the test did, and it produced
+   `ScreenCapture: projection stopped by the system` immediately after the
+   grant. The mode must be **"Entire screen"**. This is now documented in the
+   install instructions.
+2. The baseline code *did* produce a 43 936-byte JPEG in an earlier run,
+   before the `VirtualDisplay` was made persistent — so the persistent
+   display is not obviously the cause, and the emulator's SwiftShader
+   compositor is a plausible culprit.
+
+Still **not resolved**. It needs either a physical Android 15 device or a
+successful "Entire screen" run on the emulator to narrow down further. The
+end-to-end provider round-trip is blocked behind it: the mock provider
+(`tools/mock_provider.py`) was reached over the network in an earlier run
+(the request left the device and failed at connect), but a complete
+capture → model → action cycle has not been observed.

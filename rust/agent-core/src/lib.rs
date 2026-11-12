@@ -28,10 +28,19 @@ pub enum Action {
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "lowercase")]
-pub enum ScrollDir { Up, Down, Left, Right }
+pub enum ScrollDir {
+    Up,
+    Down,
+    Left,
+    Right,
+}
 
 #[derive(Debug, Deserialize)]
-struct Node { id: u32, text: String, cls: String }
+struct Node {
+    id: u32,
+    text: String,
+    cls: String,
+}
 
 const MAX_NODES: usize = 120;
 const MAX_TEXT: usize = 48;
@@ -110,7 +119,9 @@ pub fn trim_tree(json: &str) -> String {
         t = t.replace(['\n', '\r'], " ");
         let line = format!("{}|{}|{}", n.id, n.cls, t);
         bytes += line.len();
-        if bytes > MAX_BYTES { break; }
+        if bytes > MAX_BYTES {
+            break;
+        }
         out.push(line);
     }
     out.join("\n")
@@ -118,18 +129,28 @@ pub fn trim_tree(json: &str) -> String {
 
 /// Parse + validate one model action. Rejects oversized input text (injection/RAM guard).
 pub fn parse_action(json: &str) -> Result<Action, String> {
-    if json.len() > MAX_ACTION_BYTES { return Err("action too large".into()); }
+    if json.len() > MAX_ACTION_BYTES {
+        return Err("action too large".into());
+    }
     let a: Action = serde_json::from_str(json).map_err(|e| format!("bad action: {e}"))?;
     if let Action::Input { text, .. } = &a {
-        if text.len() > MAX_INPUT_TEXT { return Err("input text too long".into()); }
+        if text.len() > MAX_INPUT_TEXT {
+            return Err("input text too long".into());
+        }
     }
     if let Action::OpenApp { pkg } = &a {
-        if pkg.len() > MAX_PACKAGE_LEN || !pkg.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'_') {
+        if pkg.len() > MAX_PACKAGE_LEN
+            || !pkg
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'_')
+        {
             return Err("bad package".into());
         }
     }
     if let Action::Wait { ms } = &a {
-        if *ms > MAX_WAIT_MS { return Err("wait too long".into()); }
+        if *ms > MAX_WAIT_MS {
+            return Err("wait too long".into());
+        }
     }
     Ok(a)
 }
@@ -185,25 +206,34 @@ fn guarded<T>(fallback: T, f: impl FnOnce() -> T) -> T {
 
 #[no_mangle]
 pub extern "system" fn Java_com_onscreen_agent_RustBridge_parseAction(
-    mut env: JNIEnv, _cls: JClass, input: JString,
+    mut env: JNIEnv,
+    _cls: JClass,
+    input: JString,
 ) -> jstring {
     let s: String = env.get_string(&input).map(|v| v.into()).unwrap_or_default();
-    let out = guarded(String::new(), || {
-        match parse_action(&s) {
-            Ok(a) => serde_json::to_string(&a).unwrap_or_default(),
-            Err(e) => format!(r#"{{"type":"needHelp","reason":{}}}"#, serde_json::to_string(&e).unwrap_or_default()),
-        }
+    let out = guarded(String::new(), || match parse_action(&s) {
+        Ok(a) => serde_json::to_string(&a).unwrap_or_default(),
+        Err(e) => format!(
+            r#"{{"type":"needHelp","reason":{}}}"#,
+            serde_json::to_string(&e).unwrap_or_default()
+        ),
     });
-    env.new_string(out).map(|v| v.into_raw()).unwrap_or(std::ptr::null_mut())
+    env.new_string(out)
+        .map(|v| v.into_raw())
+        .unwrap_or(std::ptr::null_mut())
 }
 
 #[no_mangle]
 pub extern "system" fn Java_com_onscreen_agent_RustBridge_trimTree(
-    mut env: JNIEnv, _cls: JClass, input: JString,
+    mut env: JNIEnv,
+    _cls: JClass,
+    input: JString,
 ) -> jstring {
     let s: String = env.get_string(&input).map(|v| v.into()).unwrap_or_default();
     let out = guarded(String::new(), || trim_tree(&s));
-    env.new_string(out).map(|v| v.into_raw()).unwrap_or(std::ptr::null_mut())
+    env.new_string(out)
+        .map(|v| v.into_raw())
+        .unwrap_or(std::ptr::null_mut())
 }
 
 /// Build the agent prompt (goal + trimmed tree + recent steps) with all the
@@ -211,14 +241,22 @@ pub extern "system" fn Java_com_onscreen_agent_RustBridge_trimTree(
 /// to assemble inline.
 #[no_mangle]
 pub extern "system" fn Java_com_onscreen_agent_RustBridge_buildPrompt(
-    mut env: JNIEnv, _cls: JClass,
-    goal: JString, tree: JString, history: JString,
+    mut env: JNIEnv,
+    _cls: JClass,
+    goal: JString,
+    tree: JString,
+    history: JString,
 ) -> jstring {
     let g: String = env.get_string(&goal).map(|v| v.into()).unwrap_or_default();
     let t: String = env.get_string(&tree).map(|v| v.into()).unwrap_or_default();
-    let h: String = env.get_string(&history).map(|v| v.into()).unwrap_or_default();
+    let h: String = env
+        .get_string(&history)
+        .map(|v| v.into())
+        .unwrap_or_default();
     let out = guarded(String::new(), || build_prompt(&g, &t, &h));
-    env.new_string(out).map(|v| v.into_raw()).unwrap_or(std::ptr::null_mut())
+    env.new_string(out)
+        .map(|v| v.into_raw())
+        .unwrap_or(std::ptr::null_mut())
 }
 
 #[cfg(test)]
@@ -226,39 +264,78 @@ mod tests {
     use super::*;
 
     fn node(id: u32, text: &str, cls: &str) -> String {
-        format!(
-            r#"{{"id":{id},"text":"{text}","cls":"{cls}"}}"#,
-        )
+        format!(r#"{{"id":{id},"text":"{text}","cls":"{cls}"}}"#,)
     }
 
     // ---------- action parsing: every variant ----------
 
     #[test]
     fn parses_click_and_rejects_junk() {
-        assert_eq!(parse_action(r#"{"type":"click","id":7}"#).unwrap(), Action::Click { id: 7 });
+        assert_eq!(
+            parse_action(r#"{"type":"click","id":7}"#).unwrap(),
+            Action::Click { id: 7 }
+        );
         assert!(parse_action(r#"{"type":"rm -rf"}"#).is_err());
     }
 
     #[test]
     fn parses_every_action_variant() {
-        assert_eq!(parse_action(r#"{"type":"click","id":1}"#).unwrap(), Action::Click { id: 1 });
-        assert_eq!(parse_action(r#"{"type":"longClick","id":2}"#).unwrap(), Action::LongClick { id: 2 });
+        assert_eq!(
+            parse_action(r#"{"type":"click","id":1}"#).unwrap(),
+            Action::Click { id: 1 }
+        );
+        assert_eq!(
+            parse_action(r#"{"type":"longClick","id":2}"#).unwrap(),
+            Action::LongClick { id: 2 }
+        );
         assert_eq!(
             parse_action(r#"{"type":"input","id":3,"text":"hi"}"#).unwrap(),
-            Action::Input { id: 3, text: "hi".into() }
+            Action::Input {
+                id: 3,
+                text: "hi".into()
+            }
         );
-        assert_eq!(parse_action(r#"{"type":"scroll","dir":"up"}"#).unwrap(), Action::Scroll { dir: ScrollDir::Up });
-        assert_eq!(parse_action(r#"{"type":"scroll","dir":"down"}"#).unwrap(), Action::Scroll { dir: ScrollDir::Down });
-        assert_eq!(parse_action(r#"{"type":"scroll","dir":"left"}"#).unwrap(), Action::Scroll { dir: ScrollDir::Left });
-        assert_eq!(parse_action(r#"{"type":"scroll","dir":"right"}"#).unwrap(), Action::Scroll { dir: ScrollDir::Right });
+        assert_eq!(
+            parse_action(r#"{"type":"scroll","dir":"up"}"#).unwrap(),
+            Action::Scroll { dir: ScrollDir::Up }
+        );
+        assert_eq!(
+            parse_action(r#"{"type":"scroll","dir":"down"}"#).unwrap(),
+            Action::Scroll {
+                dir: ScrollDir::Down
+            }
+        );
+        assert_eq!(
+            parse_action(r#"{"type":"scroll","dir":"left"}"#).unwrap(),
+            Action::Scroll {
+                dir: ScrollDir::Left
+            }
+        );
+        assert_eq!(
+            parse_action(r#"{"type":"scroll","dir":"right"}"#).unwrap(),
+            Action::Scroll {
+                dir: ScrollDir::Right
+            }
+        );
         assert_eq!(parse_action(r#"{"type":"back"}"#).unwrap(), Action::Back);
         assert_eq!(parse_action(r#"{"type":"home"}"#).unwrap(), Action::Home);
-        assert_eq!(parse_action(r#"{"type":"openApp","pkg":"com.example.app"}"#).unwrap(),
-                   Action::OpenApp { pkg: "com.example.app".into() });
-        assert_eq!(parse_action(r#"{"type":"wait","ms":250}"#).unwrap(), Action::Wait { ms: 250 });
+        assert_eq!(
+            parse_action(r#"{"type":"openApp","pkg":"com.example.app"}"#).unwrap(),
+            Action::OpenApp {
+                pkg: "com.example.app".into()
+            }
+        );
+        assert_eq!(
+            parse_action(r#"{"type":"wait","ms":250}"#).unwrap(),
+            Action::Wait { ms: 250 }
+        );
         assert_eq!(parse_action(r#"{"type":"done"}"#).unwrap(), Action::Done);
-        assert_eq!(parse_action(r#"{"type":"needHelp","reason":"stuck"}"#).unwrap(),
-                   Action::NeedHelp { reason: "stuck".into() });
+        assert_eq!(
+            parse_action(r#"{"type":"needHelp","reason":"stuck"}"#).unwrap(),
+            Action::NeedHelp {
+                reason: "stuck".into()
+            }
+        );
     }
 
     #[test]
@@ -266,13 +343,13 @@ mod tests {
         for bad in [
             r#"{"type":"rm -rf"}"#,
             r#"{"type":"click"}"#,          // missing id
-            r#"{"type":"click","id":"7"}"#,  // id must be a number
+            r#"{"type":"click","id":"7"}"#, // id must be a number
             r#"{"type":"scroll","dir":"sideways"}"#,
-            r#"{"type":"scroll"}"#,          // missing dir
-            r#"{"type":"input","id":1}"#,    // missing text
-            r#"{"type":"openApp"}"#,         // missing pkg
-            r#"{"type":"wait"}"#,            // missing ms
-            r#"{"type":"needHelp"}"#,        // missing reason
+            r#"{"type":"scroll"}"#,       // missing dir
+            r#"{"type":"input","id":1}"#, // missing text
+            r#"{"type":"openApp"}"#,      // missing pkg
+            r#"{"type":"wait"}"#,         // missing ms
+            r#"{"type":"needHelp"}"#,     // missing reason
             r#"not json at all"#,
             r#""#,
             r#"{"type":123}"#,
@@ -285,18 +362,30 @@ mod tests {
 
     #[test]
     fn enforces_action_size_limit() {
-        let at_limit = format!(r#"{{"type":"click","id":1,"pad":"{}"}}"#, "x".repeat(MAX_ACTION_BYTES - 40));
+        let at_limit = format!(
+            r#"{{"type":"click","id":1,"pad":"{}"}}"#,
+            "x".repeat(MAX_ACTION_BYTES - 40)
+        );
         assert!(at_limit.len() <= MAX_ACTION_BYTES);
-        let over = format!(r#"{{"type":"click","id":1,"pad":"{}"}}"#, "x".repeat(MAX_ACTION_BYTES));
+        let over = format!(
+            r#"{{"type":"click","id":1,"pad":"{}"}}"#,
+            "x".repeat(MAX_ACTION_BYTES)
+        );
         assert!(over.len() > MAX_ACTION_BYTES);
         assert!(parse_action(&over).is_err());
     }
 
     #[test]
     fn enforces_input_text_limit() {
-        let ok = format!(r#"{{"type":"input","id":1,"text":"{}"}}"#, "a".repeat(MAX_INPUT_TEXT));
+        let ok = format!(
+            r#"{{"type":"input","id":1,"text":"{}"}}"#,
+            "a".repeat(MAX_INPUT_TEXT)
+        );
         assert!(parse_action(&ok).is_ok());
-        let too_long = format!(r#"{{"type":"input","id":1,"text":"{}"}}"#, "a".repeat(MAX_INPUT_TEXT + 1));
+        let too_long = format!(
+            r#"{{"type":"input","id":1,"text":"{}"}}"#,
+            "a".repeat(MAX_INPUT_TEXT + 1)
+        );
         assert!(parse_action(&too_long).is_err());
     }
 
@@ -308,7 +397,10 @@ mod tests {
         assert!(parse_action(r#"{"type":"openApp","pkg":"com.example/app"}"#).is_err());
         assert!(parse_action(r#"{"type":"openApp","pkg":"com.example;rm -rf /"}"#).is_err());
         assert!(parse_action(r#"{"type":"openApp","pkg":"com.example app"}"#).is_err());
-        let too_long = format!(r#"{{"type":"openApp","pkg":"{}"}}"#, "a".repeat(MAX_PACKAGE_LEN + 1));
+        let too_long = format!(
+            r#"{{"type":"openApp","pkg":"{}"}}"#,
+            "a".repeat(MAX_PACKAGE_LEN + 1)
+        );
         assert!(parse_action(&too_long).is_err());
     }
 
@@ -322,7 +414,10 @@ mod tests {
 
     #[test]
     fn trims_to_budget() {
-        let big = (0..500).map(|i| format!(r#"{{"id":{i},"text":"x","cls":"B"}}"#)).collect::<Vec<_>>().join(",");
+        let big = (0..500)
+            .map(|i| format!(r#"{{"id":{i},"text":"x","cls":"B"}}"#))
+            .collect::<Vec<_>>()
+            .join(",");
         let t = trim_tree(&format!("[{big}]"));
         assert!(t.len() <= MAX_BYTES + 64);
         assert!(t.lines().count() <= MAX_NODES);
@@ -379,17 +474,30 @@ mod tests {
     #[test]
     fn build_prompt_matches_the_kotlin_format() {
         // The Kotlin service used to assemble exactly this string inline.
-        assert_eq!(build_prompt("goal", "tree", ""), "Goal:goal\nScreen:\ntree\nRecent:\n");
-        assert_eq!(build_prompt("goal", "tree", "a\nb"), "Goal:goal\nScreen:\ntree\nRecent:\na\nb");
+        assert_eq!(
+            build_prompt("goal", "tree", ""),
+            "Goal:goal\nScreen:\ntree\nRecent:\n"
+        );
+        assert_eq!(
+            build_prompt("goal", "tree", "a\nb"),
+            "Goal:goal\nScreen:\ntree\nRecent:\na\nb"
+        );
     }
 
     #[test]
     fn build_prompt_caps_goal_tree_and_history() {
         let goal = "g".repeat(2000);
         let tree = "t".repeat(20_000);
-        let hist = (0..50).map(|i| format!("h{i}")).collect::<Vec<_>>().join("\n");
+        let hist = (0..50)
+            .map(|i| format!("h{i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         let p = build_prompt(&goal, &tree, &hist);
-        assert!(p.len() < 9_000, "prompt should stay bounded, got {}", p.len());
+        assert!(
+            p.len() < 9_000,
+            "prompt should stay bounded, got {}",
+            p.len()
+        );
         // only the most recent MAX_HISTORY entries survive
         assert!(p.contains("h49"));
         assert!(!p.contains("h0\n"));

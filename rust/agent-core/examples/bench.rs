@@ -110,13 +110,18 @@ fn main() {
     // ---- build_prompt: currently NOT called from Kotlin (dead code) ----
     let tree = trim_tree(&ax_dump(400));
     let hist = r#"[{"type":"click","id":1},{"type":"scroll","dir":"down"}]"#;
-    bench("build_prompt(dead code, unused by Kotlin)", 200, 5000, || {
-        std::hint::black_box(build_prompt(
-            std::hint::black_box("turn on dark theme"),
-            std::hint::black_box(&tree),
-            std::hint::black_box(hist),
-        ));
-    });
+    bench(
+        "build_prompt(dead code, unused by Kotlin)",
+        200,
+        5000,
+        || {
+            std::hint::black_box(build_prompt(
+                std::hint::black_box("turn on dark theme"),
+                std::hint::black_box(&tree),
+                std::hint::black_box(hist),
+            ));
+        },
+    );
 
     println!();
     println!("trim_tree output budget check");
